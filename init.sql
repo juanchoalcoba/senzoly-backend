@@ -1,6 +1,7 @@
 -- Script de inicialización de la base de datos para Senzoly
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- 1. Tabla de Catálogo: business_types
 CREATE TABLE IF NOT EXISTS business_types (
@@ -66,6 +67,8 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) DEFAULT 'OWNER',
     is_active BOOLEAN DEFAULT true,
     email_verified BOOLEAN DEFAULT false,
+    terms_accepted_at TIMESTAMP NULL,
+    terms_version VARCHAR(20) NULL,
     last_login_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -80,6 +83,19 @@ CREATE TABLE IF NOT EXISTS email_verifications (
     verified_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 6.1 Tokens de recuperación de contraseña. Solo se guarda el hash del token.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
+    ON password_reset_tokens(user_id);
 
 -- 7. Tabla: employees
 CREATE TABLE IF NOT EXISTS employees (
@@ -155,6 +171,24 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Impide que dos reservas activas del mismo negocio ocupen un período que se superpone.
+-- El rango usa [inicio, fin), por lo que un turno que termina a las 10:00 permite otro que empieza a las 10:00.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'bookings_no_overlapping_active_slots'
+    ) THEN
+        ALTER TABLE bookings
+            ADD CONSTRAINT bookings_no_overlapping_active_slots
+            EXCLUDE USING gist (
+                tenant_id WITH =,
+                tsrange(booking_date + start_time, booking_date + end_time, '[)') WITH &&
+            )
+            WHERE (status IN ('PENDING', 'CONFIRMED'));
+    END IF;
+END $$;
+
 -- Inserción de datos iniciales para pruebas locales (Catálogos)
 INSERT INTO business_types (id, name, slug) VALUES 
 ('018e6e58-3d2b-7b00-8000-000000000001', 'Barberías', 'barberias'),
@@ -165,9 +199,9 @@ INSERT INTO business_types (id, name, slug) VALUES
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO plans (id, name, slug, price, billing_period, max_users, max_locations, max_resources, max_bookings) VALUES 
-('018e6e58-3d2c-7b00-8000-000000000001', 'Prueba', 'prueba', 0.00, 'MONTHLY', 1, 1, 1, 20),
+('018e6e58-3d2c-7b00-8000-000000000001', 'Prueba', 'prueba', 0.00, 'MONTHLY', 8, 1, 1, 20),
 ('018e6e58-3d2c-7b00-8000-000000000002', 'Solo', 'solo', 1490.00, 'MONTHLY', 1, 1, -1, -1),
-('018e6e58-3d2c-7b00-8000-000000000003', 'Equipo', 'equipo', 2490.00, 'MONTHLY', 5, 1, -1, -1),
+('018e6e58-3d2c-7b00-8000-000000000003', 'Equipo', 'equipo', 2490.00, 'MONTHLY', 8, 1, -1, -1),
 ('018e6e58-3d2c-7b00-8000-000000000004', 'Pro+', 'pro-plus', 3990.00, 'MONTHLY', -1, -1, -1, -1)
 ON CONFLICT (id) DO UPDATE SET 
     name = EXCLUDED.name, 

@@ -16,7 +16,7 @@ const createVerification = async (client, id, userId, token) => {
 
 const findVerificationByToken = async (client, token) => {
   const query = `
-    SELECT id, user_id, expires_at 
+    SELECT id, user_id, expires_at, verified_at
     FROM email_verifications 
     WHERE token = $1;
   `;
@@ -24,15 +24,17 @@ const findVerificationByToken = async (client, token) => {
   return result.rows[0] || null;
 };
 
-const deleteVerificationByUserId = async (client, userId) => {
+const markVerificationAsUsed = async (client, id) => {
   const query = `
-    DELETE FROM email_verifications WHERE user_id = $1;
+    UPDATE email_verifications
+    SET verified_at = CURRENT_TIMESTAMP
+    WHERE id = $1;
   `;
-  await client.query(query, [userId]);
+  await client.query(query, [id]);
 };
 
 module.exports = {
   createVerification,
   findVerificationByToken,
-  deleteVerificationByUserId,
+  markVerificationAsUsed,
 };

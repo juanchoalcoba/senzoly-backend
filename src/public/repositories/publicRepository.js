@@ -2,9 +2,12 @@ const { v4: uuidv4 } = require('uuid');
 
 const findTenantBySlug = async (client, slug) => {
   const query = `
-    SELECT id, name, slug, country, phone, address, description
-    FROM tenants
-    WHERE slug = $1;
+    SELECT
+      t.id, t.name, t.slug, t.country, t.phone, t.address, t.description,
+      bt.id AS business_type_id, bt.name AS business_type_name, bt.slug AS business_type_slug
+    FROM tenants t
+    JOIN business_types bt ON t.business_type_id = bt.id
+    WHERE t.slug = $1;
   `;
   const result = await client.query(query, [slug]);
   return result.rows[0] || null;

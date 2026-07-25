@@ -11,6 +11,8 @@ const userRepo = require('../../users/repositories/userRepository');
 const verificationRepo = require('../repositories/verificationRepository');
 const catalogRepo = require('../../catalogs/repositories/catalogRepository');
 
+const TERMS_VERSION = '2026-07';
+
 const registerCompany = async (payload) => {
   const { company, owner } = payload;
   
@@ -76,7 +78,8 @@ const registerCompany = async (payload) => {
       owner.firstName,
       owner.lastName,
       owner.email,
-      passwordHash
+      passwordHash,
+      TERMS_VERSION
     );
 
     // Generar token seguro y guardarlo

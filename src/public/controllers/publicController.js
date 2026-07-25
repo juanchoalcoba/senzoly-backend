@@ -2,6 +2,8 @@ const db = require('../../config/db');
 const publicService = require('../services/publicService');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
+const isBookingConflict = (error) => error.code === '23P01';
+
 const getTenantBySlug = async (req, res) => {
   const { slug } = req.params;
   const client = await db.getClient();
@@ -33,7 +35,12 @@ const getSlots = async (req, res) => {
     return successResponse(res, slots, 'Horarios disponibles obtenidos correctamente');
   } catch (error) {
     console.error('Error en getSlots:', error);
-    if (error.message.includes('encontrado') || error.message.includes('disponible')) {
+    if (
+      error.message.includes('encontrado') ||
+      error.message.includes('disponible') ||
+      error.message.includes('fecha') ||
+      error.message.includes('pasadas')
+    ) {
       return errorResponse(res, error.message, [], 400);
     }
     return errorResponse(res, 'Error al calcular horarios disponibles', [], 500);
@@ -61,10 +68,15 @@ const createBooking = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error en createBooking público:', error);
+    if (isBookingConflict(error)) {
+      return errorResponse(res, 'El horario seleccionado acaba de ocuparse. Por favor elige otro turno.', [], 409);
+    }
     if (
       error.message.includes('obligatorios') ||
       error.message.includes('disponible') ||
-      error.message.includes('encontrado')
+      error.message.includes('encontrado') ||
+      error.message.includes('fecha') ||
+      error.message.includes('pasadas')
     ) {
       return errorResponse(res, error.message, [], 400);
     }

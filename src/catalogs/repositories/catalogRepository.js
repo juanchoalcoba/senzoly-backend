@@ -16,7 +16,7 @@ const findBusinessTypeById = async (client, id) => {
 
 const getAllBusinessTypes = async (client) => {
   const query = `
-    SELECT id, name, icon FROM business_types WHERE is_active = true ORDER BY name ASC;
+    SELECT id, name, slug, icon FROM business_types WHERE is_active = true ORDER BY name ASC;
   `;
   const result = await client.query(query);
   return result.rows;

@@ -18,6 +18,11 @@ const getPublicTenant = async (client, slug) => {
       phone: tenant.phone,
       address: tenant.address,
       description: tenant.description,
+      businessType: {
+        id: tenant.business_type_id,
+        name: tenant.business_type_name,
+        slug: tenant.business_type_slug,
+      },
     },
     services,
   };
@@ -37,7 +42,33 @@ const minutesToTime = (totalMinutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
+const validateBookingDate = (dateStr) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) {
+    throw new Error('La fecha de reserva no es válida');
+  }
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const isValidDate =
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day;
+
+  if (!isValidDate) {
+    throw new Error('La fecha de reserva no es válida');
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (date < today) {
+    throw new Error('No se pueden realizar reservas en fechas pasadas');
+  }
+};
+
 const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
+  validateBookingDate(dateStr);
+
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) throw new Error('Negocio no encontrado');
 
@@ -65,7 +96,7 @@ const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
   // Obtener reservas existentes para ese día
   const existingBookings = await publicRepo.getExistingBookingsForDate(client, tenant.id, dateStr);
 
-  const availableSlots = [];
+  const slots = [];
   const step = 30; // Intervalos de 30 minutos
 
   for (let current = openMin; current + duration <= closeMin; current += step) {
@@ -81,12 +112,13 @@ const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
       return Math.max(slotStart, bStart) < Math.min(slotEnd, bEnd);
     });
 
-    if (!hasConflict) {
-      availableSlots.push(minutesToTime(slotStart));
-    }
+    slots.push({
+      time: minutesToTime(slotStart),
+      available: !hasConflict,
+    });
   }
 
-  return availableSlots;
+  return slots;
 };
 
 const createPublicBooking = async (client, slug, bookingPayload) => {
@@ -95,6 +127,8 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
   if (!serviceId || !bookingDate || !startTime || !customer) {
     throw new Error('Todos los campos son obligatorios');
   }
+
+  validateBookingDate(bookingDate);
 
   if (!customer.firstName || !customer.lastName || (!customer.email && !customer.phone)) {
     throw new Error('Nombre, apellido y al menos un método de contacto (email o teléfono) son obligatorios');
@@ -109,10 +143,11 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
   }
 
   // 1. RE-VALIDACIÓN DE DISPONIBILIDAD EN BACKEND (Protección contra doble reserva)
-  const availableSlots = await getAvailableSlots(client, slug, serviceId, bookingDate);
+  const slots = await getAvailableSlots(client, slug, serviceId, bookingDate);
   const normalizedStartTime = startTime.substring(0, 5);
 
-  if (!availableSlots.includes(normalizedStartTime)) {
+  const selectedSlot = slots.find((slot) => slot.time === normalizedStartTime);
+  if (!selectedSlot || !selectedSlot.available) {
     throw new Error('El horario seleccionado ya no se encuentra disponible. Por favor elige otro turno.');
   }
 

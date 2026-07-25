@@ -11,6 +11,11 @@ const registerSchema = z.object({
     lastName: z.string().trim().min(2, 'El apellido es requerido'),
     email: z.string().trim().toLowerCase().email('Correo electrónico inválido'),
     password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
+    confirmPassword: z.string().min(1, 'Debes confirmar la contraseña'),
+    acceptTerms: z.boolean().refine((value) => value, 'Debes aceptar los Términos y Condiciones y la Política de Privacidad'),
+  }).refine((owner) => owner.password === owner.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
   }),
 });
 

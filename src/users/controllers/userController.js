@@ -27,6 +27,11 @@ const getMe = async (req, res) => {
         id: userDetails.tenant_id,
         name: userDetails.tenant_name,
         slug: userDetails.tenant_slug,
+        businessType: {
+          id: userDetails.business_type_id,
+          name: userDetails.business_type_name,
+          slug: userDetails.business_type_slug,
+        },
       },
       subscription: {
         id: userDetails.subscription_id,

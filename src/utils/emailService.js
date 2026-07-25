@@ -28,6 +28,36 @@ const sendVerificationEmail = async (to, token) => {
   }
 };
 
+const sendPasswordResetEmail = async (to, token) => {
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: 'Senzoly <onboarding@resend.dev>',
+      to: [to],
+      subject: 'Restablece tu contraseña de Senzoly',
+      html: `
+        <h1>Restablece tu contraseña</h1>
+        <p>Recibimos una solicitud para cambiar la contraseña de tu cuenta.</p>
+        <p>Este enlace vence en una hora y solo puede usarse una vez.</p>
+        <a href="${resetLink}" style="padding: 10px 20px; background-color: #FF6B00; color: white; text-decoration: none; border-radius: 5px;">Crear nueva contraseña</a>
+        <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend API Error:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to send password reset email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
+  sendPasswordResetEmail,
 };
