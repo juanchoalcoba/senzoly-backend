@@ -10,6 +10,7 @@ const subscriptionRepo = require('../../subscriptions/repositories/subscriptionR
 const userRepo = require('../../users/repositories/userRepository');
 const verificationRepo = require('../repositories/verificationRepository');
 const catalogRepo = require('../../catalogs/repositories/catalogRepository');
+const settingsRepo = require('../../settings/repositories/settingsRepository');
 
 const TERMS_VERSION = '2026-07';
 
@@ -57,6 +58,11 @@ const registerCompany = async (payload) => {
       slug,
       company.country
     );
+
+    await settingsRepo.upsertBookingSettings(client, tenantId, {
+      slotIntervalMinutes: businessType.slug === 'canchas' ? 60 : 30,
+      slotAlignment: businessType.slug === 'canchas' ? 'CLOCK_HOUR' : 'BUSINESS_OPEN',
+    });
 
     // Crear Suscripción (Plan Básico, status TRIAL o ACTIVE)
     await subscriptionRepo.createSubscription(

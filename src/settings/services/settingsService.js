@@ -88,9 +88,40 @@ const updateHours = async (client, tenantId, hoursArray) => {
   return updatedHours;
 };
 
+const getBookingRules = async (client, tenantId) => {
+  if (!tenantId) throw new Error('El ID de la empresa (tenant) es obligatorio');
+  const settings = await settingsRepo.getBookingSettings(client, tenantId);
+
+  return settings || {
+    slot_interval_minutes: 30,
+    slot_alignment: 'BUSINESS_OPEN',
+  };
+};
+
+const updateBookingRules = async (client, tenantId, rules) => {
+  if (!tenantId) throw new Error('El ID de la empresa (tenant) es obligatorio');
+  const slotIntervalMinutes = Number(rules.slotIntervalMinutes);
+  const slotAlignment = rules.slotAlignment;
+
+  if (![15, 30, 60].includes(slotIntervalMinutes)) {
+    throw new Error('El intervalo de turnos debe ser de 15, 30 o 60 minutos');
+  }
+
+  if (!['BUSINESS_OPEN', 'CLOCK_HOUR'].includes(slotAlignment)) {
+    throw new Error('La alineación de turnos no es válida');
+  }
+
+  return settingsRepo.upsertBookingSettings(client, tenantId, {
+    slotIntervalMinutes,
+    slotAlignment,
+  });
+};
+
 module.exports = {
   getProfile,
   updateProfile,
   getHours,
   updateHours,
+  getBookingRules,
+  updateBookingRules,
 };

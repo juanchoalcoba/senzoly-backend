@@ -92,14 +92,19 @@ const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
   const openMin = timeToMinutes(businessHour.open_time);
   const closeMin = timeToMinutes(businessHour.close_time);
   const duration = service.duration_minutes;
+  const bookingSettings = await publicRepo.getTenantBookingSettings(client, tenant.id);
+  const slotIntervalMinutes = bookingSettings?.slot_interval_minutes || 30;
+  const slotAlignment = bookingSettings?.slot_alignment || 'BUSINESS_OPEN';
 
   // Obtener reservas existentes para ese día
   const existingBookings = await publicRepo.getExistingBookingsForDate(client, tenant.id, dateStr);
 
   const slots = [];
-  const step = 30; // Intervalos de 30 minutos
+  const firstSlot = slotAlignment === 'CLOCK_HOUR'
+    ? Math.ceil(openMin / slotIntervalMinutes) * slotIntervalMinutes
+    : openMin;
 
-  for (let current = openMin; current + duration <= closeMin; current += step) {
+  for (let current = firstSlot; current + duration <= closeMin; current += slotIntervalMinutes) {
     const slotStart = current;
     const slotEnd = current + duration;
 

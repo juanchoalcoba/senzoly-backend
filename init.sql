@@ -153,6 +153,16 @@ CREATE TABLE IF NOT EXISTS business_hours (
     CONSTRAINT unique_tenant_day UNIQUE (tenant_id, day_of_week)
 );
 
+-- 10.1 Reglas de generación de turnos para cada tenant.
+CREATE TABLE IF NOT EXISTS booking_settings (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+    slot_interval_minutes SMALLINT NOT NULL DEFAULT 30 CHECK (slot_interval_minutes IN (15, 30, 60)),
+    slot_alignment VARCHAR(30) NOT NULL DEFAULT 'BUSINESS_OPEN' CHECK (slot_alignment IN ('BUSINESS_OPEN', 'CLOCK_HOUR')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 11. Tabla: bookings
 -- Núcleo de citas y reservas registradas tanto en línea como administrativamente.
 CREATE TABLE IF NOT EXISTS bookings (

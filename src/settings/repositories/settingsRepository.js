@@ -63,9 +63,35 @@ const upsertBusinessHour = async (client, tenantId, dayData) => {
   return result.rows[0];
 };
 
+const getBookingSettings = async (client, tenantId) => {
+  const result = await client.query(`
+    SELECT slot_interval_minutes, slot_alignment
+    FROM booking_settings
+    WHERE tenant_id = $1;
+  `, [tenantId]);
+  return result.rows[0] || null;
+};
+
+const upsertBookingSettings = async (client, tenantId, settings) => {
+  const id = uuidv4();
+  const result = await client.query(`
+    INSERT INTO booking_settings (id, tenant_id, slot_interval_minutes, slot_alignment)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (tenant_id)
+    DO UPDATE SET
+      slot_interval_minutes = EXCLUDED.slot_interval_minutes,
+      slot_alignment = EXCLUDED.slot_alignment,
+      updated_at = CURRENT_TIMESTAMP
+    RETURNING slot_interval_minutes, slot_alignment;
+  `, [id, tenantId, settings.slotIntervalMinutes, settings.slotAlignment]);
+  return result.rows[0];
+};
+
 module.exports = {
   getTenantProfile,
   updateTenantProfile,
   getBusinessHours,
   upsertBusinessHour,
+  getBookingSettings,
+  upsertBookingSettings,
 };

@@ -81,9 +81,40 @@ const patchHours = async (req, res) => {
   }
 };
 
+const getBookingRules = async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const rules = await settingsService.getBookingRules(client, req.user.tenantId);
+    return successResponse(res, rules, 'Reglas de agenda obtenidas correctamente');
+  } catch (error) {
+    console.error('Error en getBookingRules:', error);
+    return errorResponse(res, 'Error al obtener las reglas de agenda', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const patchBookingRules = async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const rules = await settingsService.updateBookingRules(client, req.user.tenantId, req.body);
+    return successResponse(res, rules, 'Reglas de agenda actualizadas correctamente');
+  } catch (error) {
+    console.error('Error en patchBookingRules:', error);
+    if (error.message.includes('intervalo') || error.message.includes('alineación')) {
+      return errorResponse(res, error.message, [], 400);
+    }
+    return errorResponse(res, 'Error al actualizar las reglas de agenda', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getProfile,
   patchProfile,
   getHours,
   patchHours,
+  getBookingRules,
+  patchBookingRules,
 };

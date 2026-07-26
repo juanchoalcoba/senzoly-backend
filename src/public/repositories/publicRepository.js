@@ -34,6 +34,15 @@ const getTenantBusinessHourForDay = async (client, tenantId, dayOfWeek) => {
   return result.rows[0] || null;
 };
 
+const getTenantBookingSettings = async (client, tenantId) => {
+  const result = await client.query(`
+    SELECT slot_interval_minutes, slot_alignment
+    FROM booking_settings
+    WHERE tenant_id = $1;
+  `, [tenantId]);
+  return result.rows[0] || null;
+};
+
 const getExistingBookingsForDate = async (client, tenantId, date) => {
   const query = `
     SELECT id, service_id, start_time, end_time, status
@@ -75,6 +84,7 @@ module.exports = {
   findTenantBySlug,
   getPublicActiveServices,
   getTenantBusinessHourForDay,
+  getTenantBookingSettings,
   getExistingBookingsForDate,
   createBookingRecord,
 };

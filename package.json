@@ -4,13 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "update:plan-limits": "node update_plan_limits_db.js",
-    "update:booking-integrity": "node update_booking_integrity_db.js",
-    "update:password-reset": "node update_password_reset_db.js",
-    "update:legal-consent": "node update_legal_consent_db.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "dev": "nodemon src/index.js",
+  "start": "node src/index.js",
+  "update:plan-limits": "node update_plan_limits_db.js",
+  "update:booking-integrity": "node update_booking_integrity_db.js",
+  "update:password-reset": "node update_password_reset_db.js",
+  "update:legal-consent": "node update_legal_consent_db.js",
+  "update:booking-settings": "node update_booking_settings_db.js",
+  "test": "echo \"Error: no test specified\" && exit 1"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

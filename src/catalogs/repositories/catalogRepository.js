@@ -8,7 +8,7 @@ const findPlanBySlug = async (client, slug) => {
 
 const findBusinessTypeById = async (client, id) => {
   const query = `
-    SELECT id FROM business_types WHERE id = $1 AND is_active = true;
+    SELECT id, slug FROM business_types WHERE id = $1 AND is_active = true;
   `;
   const result = await client.query(query, [id]);
   return result.rows[0] || null;

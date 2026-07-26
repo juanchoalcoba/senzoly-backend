@@ -4,6 +4,8 @@ const {
   patchProfile,
   getHours,
   patchHours,
+  getBookingRules,
+  patchBookingRules,
 } = require('../controllers/settingsController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 
@@ -17,5 +19,8 @@ router.patch('/profile', patchProfile);
 
 router.get('/hours', getHours);
 router.patch('/hours', patchHours);
+
+router.get('/booking-rules', getBookingRules);
+router.patch('/booking-rules', patchBookingRules);
 
 module.exports = router;
