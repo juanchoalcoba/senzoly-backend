@@ -1,13 +1,15 @@
 const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const appUrl = (process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+const sender = process.env.EMAIL_FROM || 'Senzoly <hola@senzoly.com>';
 
 const sendVerificationEmail = async (to, token) => {
-  const verifyLink = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+  const verifyLink = `${appUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Senzoly <onboarding@resend.dev>', // Usando el dominio por defecto de pruebas de resend
+      from: sender,
       to: [to],
       subject: 'Verifica tu cuenta en Senzoly',
       html: `
@@ -29,11 +31,11 @@ const sendVerificationEmail = async (to, token) => {
 };
 
 const sendPasswordResetEmail = async (to, token) => {
-  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+  const resetLink = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
   try {
     const { error } = await resend.emails.send({
-      from: 'Senzoly <onboarding@resend.dev>',
+      from: sender,
       to: [to],
       subject: 'Restablece tu contraseña de Senzoly',
       html: `

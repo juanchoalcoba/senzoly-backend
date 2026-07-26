@@ -11,7 +11,7 @@ const authMiddleware = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-fallback-key-change-me-in-production';
+    const JWT_SECRET = process.env.JWT_SECRET;
     const decoded = jwt.verify(token, JWT_SECRET);
 
     if (!decoded.tenantId || !decoded.userId) {
