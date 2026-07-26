@@ -135,6 +135,8 @@ CREATE TABLE IF NOT EXISTS services (
     duration_minutes INTEGER NOT NULL,
     price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     is_active BOOLEAN DEFAULT true,
+    image_url TEXT,
+    image_public_id TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

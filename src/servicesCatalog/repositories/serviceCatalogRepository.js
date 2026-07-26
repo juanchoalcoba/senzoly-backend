@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const getServicesByTenant = async (client, tenantId) => {
   const query = `
-    SELECT id, tenant_id, name, description, duration_minutes, price, is_active, created_at, updated_at
+    SELECT id, tenant_id, name, description, duration_minutes, price, is_active, image_url, image_public_id, created_at, updated_at
     FROM services
     WHERE tenant_id = $1
     ORDER BY created_at DESC;
@@ -13,11 +13,23 @@ const getServicesByTenant = async (client, tenantId) => {
 
 const getServiceById = async (client, tenantId, id) => {
   const query = `
-    SELECT id, tenant_id, name, description, duration_minutes, price, is_active, created_at, updated_at
+    SELECT id, tenant_id, name, description, duration_minutes, price, is_active, image_url, image_public_id, created_at, updated_at
     FROM services
     WHERE id = $1 AND tenant_id = $2;
   `;
   const result = await client.query(query, [id, tenantId]);
+  return result.rows[0] || null;
+};
+
+const updateServiceImage = async (client, id, tenantId, { imageUrl, imagePublicId }) => {
+  const result = await client.query(`
+    UPDATE services
+    SET image_url = $1,
+        image_public_id = $2,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $3 AND tenant_id = $4
+    RETURNING *;
+  `, [imageUrl, imagePublicId, id, tenantId]);
   return result.rows[0] || null;
 };
 
@@ -89,5 +101,6 @@ module.exports = {
   getServiceById,
   createService,
   updateService,
+  updateServiceImage,
   getServiceStats,
 };

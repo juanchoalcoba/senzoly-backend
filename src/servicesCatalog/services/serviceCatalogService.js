@@ -1,4 +1,6 @@
 const serviceRepo = require('../repositories/serviceCatalogRepository');
+const tenantRepo = require('../../tenant/repositories/tenantRepository');
+const cloudinaryService = require('../../services/cloudinaryService');
 
 const listServices = async (client, tenantId) => {
   if (!tenantId) throw new Error('El ID de la empresa (tenant) es obligatorio');
@@ -80,10 +82,66 @@ const getServiceOverview = async (client, tenantId) => {
   return await serviceRepo.getServiceStats(client, tenantId);
 };
 
+const replaceServiceImage = async (client, serviceId, tenantId, file) => {
+  const existing = await getServiceDetails(client, tenantId, serviceId);
+  const tenant = await tenantRepo.findTenantSlugById(client, tenantId);
+  if (!tenant) throw new Error('Empresa no encontrada');
+
+  const uploadedImage = await cloudinaryService.uploadServiceImage({
+    buffer: file.buffer,
+    tenantSlug: tenant.slug,
+    serviceId,
+  });
+
+  let updatedService;
+  try {
+    updatedService = await serviceRepo.updateServiceImage(client, serviceId, tenantId, uploadedImage);
+  } catch (error) {
+    try {
+      await cloudinaryService.destroyImage(uploadedImage.imagePublicId);
+    } catch (cleanupError) {
+      console.error('No se pudo limpiar una imagen recién subida:', cleanupError);
+    }
+    throw error;
+  }
+
+  if (existing.image_public_id) {
+    try {
+      await cloudinaryService.destroyImage(existing.image_public_id);
+    } catch (error) {
+      console.error(`No se pudo eliminar la imagen anterior del servicio ${serviceId}:`, error);
+    }
+  }
+
+  return updatedService;
+};
+
+const removeServiceImage = async (client, serviceId, tenantId) => {
+  const existing = await getServiceDetails(client, tenantId, serviceId);
+  if (!existing.image_url && !existing.image_public_id) return existing;
+
+  const updatedService = await serviceRepo.updateServiceImage(client, serviceId, tenantId, {
+    imageUrl: null,
+    imagePublicId: null,
+  });
+
+  if (existing.image_public_id) {
+    try {
+      await cloudinaryService.destroyImage(existing.image_public_id);
+    } catch (error) {
+      console.error(`No se pudo eliminar la imagen de Cloudinary del servicio ${serviceId}:`, error);
+    }
+  }
+
+  return updatedService;
+};
+
 module.exports = {
   listServices,
   getServiceDetails,
   addService,
   modifyService,
   getServiceOverview,
+  replaceServiceImage,
+  removeServiceImage,
 };

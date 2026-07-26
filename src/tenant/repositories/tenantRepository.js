@@ -10,6 +10,16 @@ const createTenant = async (client, id, businessTypeId, name, slug, country) => 
   return result.rows[0];
 };
 
+const findTenantSlugById = async (client, tenantId) => {
+  const result = await client.query(`
+    SELECT slug
+    FROM tenants
+    WHERE id = $1;
+  `, [tenantId]);
+  return result.rows[0] || null;
+};
+
 module.exports = {
   createTenant,
+  findTenantSlugById,
 };

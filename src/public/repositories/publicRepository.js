@@ -15,7 +15,7 @@ const findTenantBySlug = async (client, slug) => {
 
 const getPublicActiveServices = async (client, tenantId) => {
   const query = `
-    SELECT id, name, description, duration_minutes, price
+    SELECT id, name, description, duration_minutes, price, image_url
     FROM services
     WHERE tenant_id = $1 AND is_active = true
     ORDER BY name ASC;

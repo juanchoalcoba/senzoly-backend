@@ -111,10 +111,46 @@ const patchService = async (req, res) => {
   }
 };
 
+const replaceServiceImage = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+  const client = await db.getClient();
+  try {
+    const service = await serviceCatalogService.replaceServiceImage(client, id, tenantId, req.file);
+    return successResponse(res, service, 'Imagen del servicio actualizada correctamente');
+  } catch (error) {
+    console.error('Error en replaceServiceImage:', error);
+    if (error.message === 'Servicio no encontrado') return errorResponse(res, error.message, [], 404);
+    if (error.statusCode) return errorResponse(res, error.message, [], error.statusCode);
+    return errorResponse(res, 'Error al actualizar la imagen del servicio', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const deleteServiceImage = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+  const client = await db.getClient();
+  try {
+    const service = await serviceCatalogService.removeServiceImage(client, id, tenantId);
+    return successResponse(res, service, 'Imagen del servicio eliminada correctamente');
+  } catch (error) {
+    console.error('Error en deleteServiceImage:', error);
+    if (error.message === 'Servicio no encontrado') return errorResponse(res, error.message, [], 404);
+    if (error.statusCode) return errorResponse(res, error.message, [], error.statusCode);
+    return errorResponse(res, 'Error al eliminar la imagen del servicio', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getServices,
   getServiceStats,
   getServiceById,
   createService,
   patchService,
+  replaceServiceImage,
+  deleteServiceImage,
 };
