@@ -35,6 +35,16 @@ const getEmployeesByTenant = async (client, tenantId) => {
   return result.rows;
 };
 
+const getEmployeeById = async (client, id, tenantId) => {
+  const query = `
+    SELECT id, first_name, last_name, email, phone, is_active, commission_type, commission_value
+    FROM employees
+    WHERE id = $1 AND tenant_id = $2;
+  `;
+  const result = await client.query(query, [id, tenantId]);
+  return result.rows[0] || null;
+};
+
 const updateEmployee = async (client, id, tenantId, updates) => {
   const { firstName, lastName, email, phone, isActive, active, commissionType, commissionValue } = updates;
   const employeeActive = active ?? isActive;
@@ -82,6 +92,7 @@ const countEmployeesByTenant = async (client, tenantId) => {
 module.exports = {
   createEmployee,
   getEmployeesByTenant,
+  getEmployeeById,
   updateEmployee,
   deleteEmployee,
   countEmployeesByTenant

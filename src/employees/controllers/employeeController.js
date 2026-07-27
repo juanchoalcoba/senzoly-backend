@@ -1,6 +1,6 @@
 const db = require('../../config/db');
-const { getEmployeesByTenant, updateEmployee, deleteEmployee } = require('../repositories/employeeRepository');
-const { addEmployee, validateEmployeeData } = require('../services/employeeService');
+const { getEmployeesByTenant, deleteEmployee } = require('../repositories/employeeRepository');
+const { addEmployee, modifyEmployee, EmployeeValidationError } = require('../services/employeeService');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
 const getEmployees = async (req, res) => {
@@ -47,7 +47,7 @@ const createNewEmployee = async (req, res) => {
       return errorResponse(res, error.message, [], 403);
     }
     
-    if (error.message.includes('comisión') || error.message.includes('estado del empleado')) {
+    if (error instanceof EmployeeValidationError) {
       return errorResponse(res, error.message, [], 400);
     }
 
@@ -64,15 +64,14 @@ const updateExistingEmployee = async (req, res) => {
 
   const client = await db.getClient();
   try {
-    validateEmployeeData(updates);
-    const employee = await updateEmployee(client, id, tenantId, updates);
-    if (!employee) {
-      return errorResponse(res, 'Empleado no encontrado', [], 404);
-    }
+    const employee = await modifyEmployee(client, id, tenantId, updates);
     return successResponse(res, employee, 'Empleado actualizado correctamente');
   } catch (error) {
     console.error('Error en updateExistingEmployee:', error);
-    if (error.message.includes('comisión') || error.message.includes('estado del empleado')) {
+    if (error.message === 'Empleado no encontrado') {
+      return errorResponse(res, error.message, [], 404);
+    }
+    if (error instanceof EmployeeValidationError) {
       return errorResponse(res, error.message, [], 400);
     }
     return errorResponse(res, 'Error al actualizar empleado', [], 500);
