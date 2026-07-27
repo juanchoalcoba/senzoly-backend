@@ -2,6 +2,22 @@ const publicRepo = require('../repositories/publicRepository');
 const serviceRepo = require('../../servicesCatalog/repositories/serviceCatalogRepository');
 const customerRepo = require('../../customers/repositories/customerRepository');
 
+const BUSINESS_TIME_ZONE = process.env.BUSINESS_TIME_ZONE || 'America/Montevideo';
+
+const getBusinessToday = () => {
+  const dateParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date()).reduce((parts, part) => {
+    if (part.type !== 'literal') parts[part.type] = part.value;
+    return parts;
+  }, {});
+
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+};
+
 const getPublicTenant = async (client, slug) => {
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) {
@@ -58,10 +74,7 @@ const validateBookingDate = (dateStr) => {
     throw new Error('La fecha de reserva no es válida');
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (date < today) {
+  if (dateStr < getBusinessToday()) {
     throw new Error('No se pueden realizar reservas en fechas pasadas');
   }
 };
