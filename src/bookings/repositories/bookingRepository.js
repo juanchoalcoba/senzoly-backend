@@ -62,17 +62,21 @@ const updateBookingStatus = async (client, id, tenantId, status) => {
   return result.rows[0] || null;
 };
 
+// Las reservas se guardan como DATE. Por eso el "hoy" debe calcularse en la
+// zona horaria del negocio, y no en la que tenga configurada PostgreSQL.
+const BUSINESS_TIME_ZONE = process.env.BUSINESS_TIME_ZONE || 'America/Montevideo';
+
 const getBookingStats = async (client, tenantId) => {
   const query = `
     SELECT 
       COUNT(*) AS total_bookings,
-      COUNT(CASE WHEN booking_date = CURRENT_DATE THEN 1 END) AS today_bookings,
+      COUNT(CASE WHEN booking_date = timezone($2, CURRENT_TIMESTAMP)::date THEN 1 END) AS today_bookings,
       COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS completed_bookings,
       COUNT(CASE WHEN status = 'CANCELED' THEN 1 END) AS canceled_bookings
     FROM bookings
     WHERE tenant_id = $1;
   `;
-  const result = await client.query(query, [tenantId]);
+  const result = await client.query(query, [tenantId, BUSINESS_TIME_ZONE]);
   const row = result.rows[0];
   return {
     totalBookings: parseInt(row.total_bookings || 0, 10),
