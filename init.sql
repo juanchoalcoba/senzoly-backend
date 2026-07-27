@@ -106,6 +106,8 @@ CREATE TABLE IF NOT EXISTS employees (
     email VARCHAR(255),
     phone VARCHAR(50),
     is_active BOOLEAN DEFAULT true,
+    commission_type VARCHAR(20) CHECK (commission_type IN ('percentage', 'fixed')),
+    commission_value NUMERIC(10, 2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
