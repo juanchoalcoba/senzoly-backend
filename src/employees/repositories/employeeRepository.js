@@ -32,7 +32,24 @@ const getEmployeesByTenant = async (client, tenantId) => {
     ORDER BY created_at DESC;
   `;
   const result = await client.query(query, [tenantId]);
-  return result.rows;
+  const serviceAssignments = await client.query(`
+    SELECT employee_services.employee_id, employee_services.service_id
+    FROM employee_services
+    JOIN employees ON employees.id = employee_services.employee_id
+    WHERE employees.tenant_id = $1;
+  `, [tenantId]);
+  const serviceIdsByEmployee = new Map();
+
+  for (const assignment of serviceAssignments.rows) {
+    const serviceIds = serviceIdsByEmployee.get(assignment.employee_id) || [];
+    serviceIds.push(assignment.service_id);
+    serviceIdsByEmployee.set(assignment.employee_id, serviceIds);
+  }
+
+  return result.rows.map((employee) => ({
+    ...employee,
+    service_ids: serviceIdsByEmployee.get(employee.id) || [],
+  }));
 };
 
 const getEmployeeById = async (client, id, tenantId) => {
@@ -75,6 +92,35 @@ const updateEmployee = async (client, id, tenantId, updates) => {
   return result.rows[0] || null;
 };
 
+const replaceEmployeeServices = async (client, employeeId, tenantId, serviceIds) => {
+  const uniqueServiceIds = [...new Set(serviceIds)];
+
+  if (uniqueServiceIds.length > 0) {
+    const tenantServices = await client.query(`
+      SELECT id
+      FROM services
+      WHERE tenant_id = $1 AND id = ANY($2::uuid[]);
+    `, [tenantId, uniqueServiceIds]);
+
+    if (tenantServices.rowCount !== uniqueServiceIds.length) {
+      throw new Error('Solo puedes asignar servicios de tu empresa');
+    }
+  }
+
+  await client.query(`
+    DELETE FROM employee_services
+    WHERE employee_id = $1;
+  `, [employeeId]);
+
+  if (uniqueServiceIds.length > 0) {
+    await client.query(`
+      INSERT INTO employee_services (employee_id, service_id)
+      SELECT $1, unnest($2::uuid[])
+      ON CONFLICT (employee_id, service_id) DO NOTHING;
+    `, [employeeId, uniqueServiceIds]);
+  }
+};
+
 const deleteEmployee = async (client, id, tenantId) => {
   const query = `
     DELETE FROM employees WHERE id = $1 AND tenant_id = $2 RETURNING id;
@@ -94,6 +140,7 @@ module.exports = {
   getEmployeesByTenant,
   getEmployeeById,
   updateEmployee,
+  replaceEmployeeServices,
   deleteEmployee,
   countEmployeesByTenant
 };

@@ -24,6 +24,36 @@ const getPublicActiveServices = async (client, tenantId) => {
   return result.rows;
 };
 
+const getPublicActiveEmployeesByService = async (client, tenantId, serviceId) => {
+  const result = await client.query(`
+    SELECT e.id, e.first_name, e.last_name
+    FROM employees e
+    JOIN employee_services es ON es.employee_id = e.id
+    JOIN services s ON s.id = es.service_id
+    WHERE e.tenant_id = $1
+      AND es.service_id = $2
+      AND s.tenant_id = $1
+      AND e.is_active = true
+    ORDER BY e.first_name ASC, e.last_name ASC;
+  `, [tenantId, serviceId]);
+  return result.rows;
+};
+
+const getPublicActiveEmployeeForService = async (client, tenantId, serviceId, employeeId) => {
+  const result = await client.query(`
+    SELECT e.id, e.first_name, e.last_name
+    FROM employees e
+    JOIN employee_services es ON es.employee_id = e.id
+    JOIN services s ON s.id = es.service_id
+    WHERE e.id = $1
+      AND e.tenant_id = $2
+      AND es.service_id = $3
+      AND s.tenant_id = $2
+      AND e.is_active = true;
+  `, [employeeId, tenantId, serviceId]);
+  return result.rows[0] || null;
+};
+
 const getTenantBusinessHourForDay = async (client, tenantId, dayOfWeek) => {
   const query = `
     SELECT open_time, close_time, is_closed
@@ -83,6 +113,8 @@ const createBookingRecord = async (client, bookingData) => {
 module.exports = {
   findTenantBySlug,
   getPublicActiveServices,
+  getPublicActiveEmployeesByService,
+  getPublicActiveEmployeeForService,
   getTenantBusinessHourForDay,
   getTenantBookingSettings,
   getExistingBookingsForDate,

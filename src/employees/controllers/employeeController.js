@@ -19,7 +19,7 @@ const getEmployees = async (req, res) => {
 
 const createNewEmployee = async (req, res) => {
   const { tenantId } = req.user;
-  const { firstName, lastName, email, phone, active, commissionType, commissionValue } = req.body;
+  const { firstName, lastName, email, phone, active, commissionType, commissionValue, serviceIds } = req.body;
 
   if (!firstName || !lastName) {
     return errorResponse(res, 'Nombre y apellido son obligatorios', [], 400);
@@ -36,6 +36,7 @@ const createNewEmployee = async (req, res) => {
       active,
       commissionType,
       commissionValue,
+      serviceIds,
     });
     await client.query('COMMIT');
     return successResponse(res, employee, 'Empleado creado correctamente', 201);
@@ -51,6 +52,10 @@ const createNewEmployee = async (req, res) => {
       return errorResponse(res, error.message, [], 400);
     }
 
+    if (error.message === 'Solo puedes asignar servicios de tu empresa') {
+      return errorResponse(res, error.message, [], 403);
+    }
+
     return errorResponse(res, 'Error al crear empleado', [], 500);
   } finally {
     client.release();
@@ -64,15 +69,21 @@ const updateExistingEmployee = async (req, res) => {
 
   const client = await db.getClient();
   try {
+    await client.query('BEGIN');
     const employee = await modifyEmployee(client, id, tenantId, updates);
+    await client.query('COMMIT');
     return successResponse(res, employee, 'Empleado actualizado correctamente');
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Error en updateExistingEmployee:', error);
     if (error.message === 'Empleado no encontrado') {
       return errorResponse(res, error.message, [], 404);
     }
     if (error instanceof EmployeeValidationError) {
       return errorResponse(res, error.message, [], 400);
+    }
+    if (error.message === 'Solo puedes asignar servicios de tu empresa') {
+      return errorResponse(res, error.message, [], 403);
     }
     return errorResponse(res, 'Error al actualizar empleado', [], 500);
   } finally {

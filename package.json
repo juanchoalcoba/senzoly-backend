@@ -13,6 +13,7 @@
     "update:booking-settings": "node update_booking_settings_db.js",
     "update:service-images": "node update_service_images_db.js",
     "update:employee-commission": "node update_employee_commission_db.js",
+    "update:employee-services": "node update_employee_services_db.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

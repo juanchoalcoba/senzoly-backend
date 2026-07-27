@@ -49,15 +49,39 @@ const getSlots = async (req, res) => {
   }
 };
 
+const getProfessionals = async (req, res) => {
+  const { slug } = req.params;
+  const { serviceId } = req.query;
+
+  if (!serviceId) {
+    return errorResponse(res, 'serviceId es un parámetro obligatorio', [], 400);
+  }
+
+  const client = await db.getClient();
+  try {
+    const professionals = await publicService.getAvailableProfessionals(client, slug, serviceId);
+    return successResponse(res, professionals, 'Profesionales disponibles obtenidos correctamente');
+  } catch (error) {
+    console.error('Error en getProfessionals:', error);
+    if (error.message.includes('encontrado') || error.message.includes('disponible')) {
+      return errorResponse(res, error.message, [], 400);
+    }
+    return errorResponse(res, 'Error al obtener profesionales disponibles', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 const createBooking = async (req, res) => {
   const { slug } = req.params;
-  const { serviceId, bookingDate, startTime, customer, notes } = req.body;
+  const { serviceId, employeeId, bookingDate, startTime, customer, notes } = req.body;
 
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
     const result = await publicService.createPublicBooking(client, slug, {
       serviceId,
+      employeeId,
       bookingDate,
       startTime,
       customer,
@@ -74,6 +98,7 @@ const createBooking = async (req, res) => {
     if (
       error.message.includes('obligatorios') ||
       error.message.includes('disponible') ||
+      error.message.includes('profesional') ||
       error.message.includes('encontrado') ||
       error.message.includes('fecha') ||
       error.message.includes('pasadas')
@@ -89,5 +114,6 @@ const createBooking = async (req, res) => {
 module.exports = {
   getTenantBySlug,
   getSlots,
+  getProfessionals,
   createBooking,
 };

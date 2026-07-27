@@ -143,6 +143,16 @@ CREATE TABLE IF NOT EXISTS services (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 9.1 Relación de servicios que puede realizar cada empleado.
+CREATE TABLE IF NOT EXISTS employee_services (
+    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    PRIMARY KEY (employee_id, service_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_employee_services_service_id
+    ON employee_services(service_id);
+
 -- 10. Tabla: business_hours
 -- Representa exclusivamente el Horario General de Apertura del Tenant (0=Domingo...6=Sábado).
 CREATE TABLE IF NOT EXISTS business_hours (

@@ -2,6 +2,7 @@ const {
   createEmployee,
   getEmployeeById,
   updateEmployee,
+  replaceEmployeeServices,
   countEmployeesByTenant,
 } = require('../repositories/employeeRepository');
 const { getSubscriptionLimits } = require('../../subscriptions/repositories/subscriptionRepository');
@@ -14,7 +15,7 @@ class EmployeeValidationError extends Error {
 }
 
 const validateEmployeeData = (employeeData) => {
-  const { firstName, lastName, active, isActive, commissionType, commissionValue } = employeeData;
+  const { firstName, lastName, active, isActive, commissionType, commissionValue, serviceIds } = employeeData;
 
   if (firstName !== undefined && (typeof firstName !== 'string' || !firstName.trim())) {
     throw new EmployeeValidationError('El nombre es obligatorio');
@@ -50,6 +51,10 @@ const validateEmployeeData = (employeeData) => {
     }
     employeeData.commissionValue = numericCommissionValue;
   }
+
+  if (serviceIds !== undefined && !Array.isArray(serviceIds)) {
+    throw new EmployeeValidationError('Los servicios asignados deben ser una lista');
+  }
 };
 
 const addEmployee = async (client, tenantId, employeeData) => {
@@ -67,8 +72,8 @@ const addEmployee = async (client, tenantId, employeeData) => {
     }
   }
 
-  const { firstName, lastName, email, phone, active, commissionType, commissionValue } = employeeData;
-  return await createEmployee(
+  const { firstName, lastName, email, phone, active, commissionType, commissionValue, serviceIds = [] } = employeeData;
+  const employee = await createEmployee(
     client,
     tenantId,
     firstName,
@@ -79,6 +84,8 @@ const addEmployee = async (client, tenantId, employeeData) => {
     commissionType,
     commissionValue
   );
+  await replaceEmployeeServices(client, employee.id, tenantId, serviceIds);
+  return employee;
 };
 
 const modifyEmployee = async (client, id, tenantId, updates) => {
@@ -93,6 +100,7 @@ const modifyEmployee = async (client, id, tenantId, updates) => {
     active: updates.active ?? updates.isActive ?? existingEmployee.is_active,
     commissionType: updates.commissionType ?? existingEmployee.commission_type,
     commissionValue: updates.commissionValue ?? existingEmployee.commission_value,
+    serviceIds: updates.serviceIds,
   };
 
   validateEmployeeData(validationData);
@@ -101,7 +109,11 @@ const modifyEmployee = async (client, id, tenantId, updates) => {
     updates.commissionValue = validationData.commissionValue;
   }
 
-  return await updateEmployee(client, id, tenantId, updates);
+  const employee = await updateEmployee(client, id, tenantId, updates);
+  if (updates.serviceIds !== undefined) {
+    await replaceEmployeeServices(client, id, tenantId, updates.serviceIds);
+  }
+  return employee;
 };
 
 module.exports = {

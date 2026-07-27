@@ -44,6 +44,18 @@ const getPublicTenant = async (client, slug) => {
   };
 };
 
+const getAvailableProfessionals = async (client, slug, serviceId) => {
+  const tenant = await publicRepo.findTenantBySlug(client, slug);
+  if (!tenant) throw new Error('Negocio no encontrado');
+
+  const service = await serviceRepo.getServiceById(client, tenant.id, serviceId);
+  if (!service || !service.is_active) {
+    throw new Error('Servicio no encontrado o no disponible');
+  }
+
+  return await publicRepo.getPublicActiveEmployeesByService(client, tenant.id, serviceId);
+};
+
 // Helper para convertir "HH:MM" o "HH:MM:SS" a minutos desde las 00:00
 const timeToMinutes = (timeStr) => {
   if (!timeStr) return 0;
@@ -140,9 +152,9 @@ const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
 };
 
 const createPublicBooking = async (client, slug, bookingPayload) => {
-  const { serviceId, bookingDate, startTime, customer, notes } = bookingPayload;
+  const { serviceId, employeeId, bookingDate, startTime, customer, notes } = bookingPayload;
 
-  if (!serviceId || !bookingDate || !startTime || !customer) {
+  if (!serviceId || !employeeId || !bookingDate || !startTime || !customer) {
     throw new Error('Todos los campos son obligatorios');
   }
 
@@ -158,6 +170,11 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
   const service = await serviceRepo.getServiceById(client, tenant.id, serviceId);
   if (!service || !service.is_active) {
     throw new Error('Servicio no disponible');
+  }
+
+  const employee = await publicRepo.getPublicActiveEmployeeForService(client, tenant.id, service.id, employeeId);
+  if (!employee) {
+    throw new Error('El profesional seleccionado no está disponible para este servicio');
   }
 
   // 1. RE-VALIDACIÓN DE DISPONIBILIDAD EN BACKEND (Protección contra doble reserva)
@@ -189,7 +206,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
     tenantId: tenant.id,
     customerId: customerRecord.id,
     serviceId: service.id,
-    employeeId: null,
+    employeeId: employee.id,
     bookingDate,
     startTime: startTimeStr,
     endTime: endTimeStr,
@@ -202,12 +219,14 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
     booking: bookingRecord,
     customer: customerRecord,
     service,
+    employee,
     tenant,
   };
 };
 
 module.exports = {
   getPublicTenant,
+  getAvailableProfessionals,
   getAvailableSlots,
   createPublicBooking,
 };

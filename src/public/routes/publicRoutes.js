@@ -1,10 +1,11 @@
 const express = require('express');
-const { getTenantBySlug, getSlots, createBooking } = require('../controllers/publicController');
+const { getTenantBySlug, getSlots, getProfessionals, createBooking } = require('../controllers/publicController');
 
 const router = express.Router();
 
 // Rutas públicas — Sin JWT
 router.get('/tenant/:slug', getTenantBySlug);
+router.get('/tenant/:slug/professionals', getProfessionals);
 router.get('/tenant/:slug/slots', getSlots);
 router.post('/tenant/:slug/bookings', createBooking);
 
