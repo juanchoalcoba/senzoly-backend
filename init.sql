@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS employees (
     is_active BOOLEAN DEFAULT true,
     commission_type VARCHAR(20) CHECK (commission_type IN ('percentage', 'fixed')),
     commission_value NUMERIC(10, 2),
+    portal_token VARCHAR(64) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -197,6 +198,42 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 12. Tabla: financial_movements (Módulo Financiero)
+CREATE TABLE IF NOT EXISTS financial_movements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    booking_id UUID UNIQUE REFERENCES bookings(id) ON DELETE SET NULL,
+    employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+
+    type VARCHAR(20) NOT NULL DEFAULT 'INCOME',
+    category VARCHAR(50) NOT NULL DEFAULT 'SERVICE_BOOKING',
+
+    gross_amount NUMERIC(10, 2) NOT NULL,
+    commission_type VARCHAR(20),
+    commission_rate NUMERIC(10, 2),
+    employee_payout NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    business_net_income NUMERIC(10, 2) NOT NULL,
+
+    service_name_snapshot VARCHAR(255) NOT NULL,
+    service_duration_snapshot INTEGER NOT NULL,
+    employee_name_snapshot VARCHAR(255),
+    customer_name_snapshot VARCHAR(255),
+
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'CASH',
+    completed_by_type VARCHAR(20) NOT NULL DEFAULT 'USER',
+    completed_by_id UUID,
+    completed_by_name VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_fin_mov_tenant_created 
+    ON financial_movements(tenant_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_fin_mov_tenant_employee 
+    ON financial_movements(tenant_id, employee_id);
+
 -- Impide que dos reservas activas del mismo negocio ocupen un período que se superpone.
 -- El rango usa [inicio, fin), por lo que un turno que termina a las 10:00 permite otro que empieza a las 10:00.
 DO $$
@@ -211,7 +248,7 @@ BEGIN
                 tenant_id WITH =,
                 tsrange(booking_date + start_time, booking_date + end_time, '[)') WITH &&
             )
-            WHERE (status IN ('PENDING', 'CONFIRMED'));
+            WHERE (status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS'));
     END IF;
 END $$;
 

@@ -38,15 +38,63 @@ const getBookingsByTenant = async (client, tenantId, filters = {}) => {
 const getBookingById = async (client, tenantId, id) => {
   const query = `
     SELECT 
-      b.id, b.tenant_id, b.booking_date, b.start_time, b.end_time, b.status, b.total_price, b.notes, b.created_at,
+      b.id, b.tenant_id, b.booking_date, b.start_time, b.end_time, b.status, b.total_price, b.notes, b.created_at, b.employee_id,
       c.id as customer_id, c.first_name as customer_first_name, c.last_name as customer_last_name, c.email as customer_email, c.phone as customer_phone,
-      s.id as service_id, s.name as service_name, s.duration_minutes
+      s.id as service_id, s.name as service_name, s.duration_minutes,
+      e.first_name as employee_first_name, e.last_name as employee_last_name, e.commission_type, e.commission_value
     FROM bookings b
     JOIN customers c ON b.customer_id = c.id
     JOIN services s ON b.service_id = s.id
+    LEFT JOIN employees e ON b.employee_id = e.id
     WHERE b.id = $1 AND b.tenant_id = $2;
   `;
   const result = await client.query(query, [id, tenantId]);
+  return result.rows[0] || null;
+};
+
+const createFinancialMovement = async (client, movementData) => {
+  const query = `
+    INSERT INTO financial_movements (
+      tenant_id, booking_id, employee_id, customer_id, service_id,
+      type, category, gross_amount, commission_type, commission_rate,
+      employee_payout, business_net_income, service_name_snapshot,
+      service_duration_snapshot, employee_name_snapshot, customer_name_snapshot,
+      payment_method, completed_by_type, completed_by_id, completed_by_name, notes
+    ) VALUES (
+      $1, $2, $3, $4, $5,
+      $6, $7, $8, $9, $10,
+      $11, $12, $13,
+      $14, $15, $16,
+      $17, $18, $19, $20, $21
+    )
+    ON CONFLICT (booking_id) DO NOTHING
+    RETURNING *;
+  `;
+  const values = [
+    movementData.tenant_id,
+    movementData.booking_id,
+    movementData.employee_id || null,
+    movementData.customer_id || null,
+    movementData.service_id || null,
+    movementData.type || 'INCOME',
+    movementData.category || 'SERVICE_BOOKING',
+    movementData.gross_amount,
+    movementData.commission_type || null,
+    movementData.commission_rate || null,
+    movementData.employee_payout,
+    movementData.business_net_income,
+    movementData.service_name_snapshot,
+    movementData.service_duration_snapshot,
+    movementData.employee_name_snapshot || null,
+    movementData.customer_name_snapshot || null,
+    movementData.payment_method || 'CASH',
+    movementData.completed_by_type || 'USER',
+    movementData.completed_by_id || null,
+    movementData.completed_by_name || null,
+    movementData.notes || null,
+  ];
+
+  const result = await client.query(query, values);
   return result.rows[0] || null;
 };
 
@@ -90,5 +138,6 @@ module.exports = {
   getBookingsByTenant,
   getBookingById,
   updateBookingStatus,
+  createFinancialMovement,
   getBookingStats,
 };

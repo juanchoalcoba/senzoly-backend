@@ -52,13 +52,19 @@ const getBookingById = async (req, res) => {
 };
 
 const patchBookingStatus = async (req, res) => {
-  const { tenantId } = req.user;
+  const { tenantId, id: userId, first_name, last_name, role } = req.user;
   const { id } = req.params;
   const { status } = req.body;
 
   const client = await db.getClient();
   try {
-    const updated = await bookingService.changeBookingStatus(client, tenantId, id, status);
+    const completedBy = {
+      type: role === 'EMPLOYEE' ? 'EMPLOYEE' : 'USER',
+      id: userId || null,
+      name: `${first_name || ''} ${last_name || ''}`.trim() || 'Usuario Admin',
+    };
+
+    const updated = await bookingService.changeBookingStatus(client, tenantId, id, status, completedBy);
     return successResponse(res, updated, 'Estado de reserva actualizado correctamente');
   } catch (error) {
     console.error('Error en patchBookingStatus:', error);

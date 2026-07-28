@@ -1,5 +1,5 @@
 const db = require('../../config/db');
-const { getEmployeesByTenant, deleteEmployee } = require('../repositories/employeeRepository');
+const { getEmployeesByTenant, deleteEmployee, regenerateEmployeePortalToken } = require('../repositories/employeeRepository');
 const { addEmployee, modifyEmployee, EmployeeValidationError } = require('../services/employeeService');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
@@ -91,6 +91,25 @@ const updateExistingEmployee = async (req, res) => {
   }
 };
 
+const regenerateToken = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+
+  const client = await db.getClient();
+  try {
+    const updated = await regenerateEmployeePortalToken(client, id, tenantId);
+    if (!updated) {
+      return errorResponse(res, 'Empleado no encontrado', [], 404);
+    }
+    return successResponse(res, updated, 'Enlace del portal regenerado correctamente');
+  } catch (error) {
+    console.error('Error en regenerateToken:', error);
+    return errorResponse(res, 'Error al regenerar enlace del portal', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 const removeEmployee = async (req, res) => {
   const { tenantId } = req.user;
   const { id } = req.params;
@@ -114,5 +133,6 @@ module.exports = {
   getEmployees,
   createNewEmployee,
   updateExistingEmployee,
+  regenerateToken,
   removeEmployee
 };

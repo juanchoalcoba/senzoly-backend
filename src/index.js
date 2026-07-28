@@ -11,6 +11,7 @@ const serviceCatalogRoutes = require('./servicesCatalog/routes/serviceCatalogRou
 const settingsRoutes = require('./settings/routes/settingsRoutes');
 const publicRoutes = require('./public/routes/publicRoutes');
 const bookingRoutes = require('./bookings/routes/bookingRoutes');
+const staffPortalRoutes = require('./staffPortal/routes/staffPortalRoutes');
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
@@ -68,6 +69,7 @@ app.use('/api/services', serviceCatalogRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/staff-portal', staffPortalRoutes);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {

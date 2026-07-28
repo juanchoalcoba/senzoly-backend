@@ -1,12 +1,16 @@
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+
+const generatePortalToken = () => crypto.randomBytes(24).toString('hex');
 
 const createEmployee = async (client, tenantId, firstName, lastName, email, phone, active, commissionType, commissionValue) => {
   const id = uuidv4();
+  const portalToken = generatePortalToken();
   const query = `
     INSERT INTO employees (
-      id, tenant_id, first_name, last_name, email, phone, is_active, commission_type, commission_value
+      id, tenant_id, first_name, last_name, email, phone, is_active, commission_type, commission_value, portal_token
     )
-    VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), $8, $9, $10)
     RETURNING *, is_active AS active;
   `;
   const result = await client.query(query, [
@@ -19,6 +23,7 @@ const createEmployee = async (client, tenantId, firstName, lastName, email, phon
     active,
     commissionType,
     commissionValue,
+    portalToken,
   ]);
   return result.rows[0];
 };
@@ -62,12 +67,22 @@ const copyBusinessHoursToEmployee = async (client, employeeId, tenantId) => {
 const getEmployeesByTenant = async (client, tenantId) => {
   const query = `
     SELECT id, first_name, last_name, email, phone, is_active, is_active AS active,
-           commission_type, commission_value, created_at
+           commission_type, commission_value, portal_token, created_at
     FROM employees 
     WHERE tenant_id = $1 
     ORDER BY created_at DESC;
   `;
   const result = await client.query(query, [tenantId]);
+  
+  // Asegurar que si algún empleado antiguo no tenía portal_token, se le genere uno
+  for (const emp of result.rows) {
+    if (!emp.portal_token) {
+      const newToken = generatePortalToken();
+      await client.query('UPDATE employees SET portal_token = $1 WHERE id = $2', [newToken, emp.id]);
+      emp.portal_token = newToken;
+    }
+  }
+
   const serviceAssignments = await client.query(`
     SELECT employee_services.employee_id, employee_services.service_id
     FROM employee_services
@@ -90,11 +105,24 @@ const getEmployeesByTenant = async (client, tenantId) => {
 
 const getEmployeeById = async (client, id, tenantId) => {
   const query = `
-    SELECT id, first_name, last_name, email, phone, is_active, commission_type, commission_value
+    SELECT id, first_name, last_name, email, phone, is_active, commission_type, commission_value, portal_token
     FROM employees
     WHERE id = $1 AND tenant_id = $2;
   `;
   const result = await client.query(query, [id, tenantId]);
+  return result.rows[0] || null;
+};
+
+const regenerateEmployeePortalToken = async (client, id, tenantId) => {
+  const newToken = generatePortalToken();
+  const query = `
+    UPDATE employees
+    SET portal_token = $1,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2 AND tenant_id = $3
+    RETURNING id, first_name, last_name, portal_token;
+  `;
+  const result = await client.query(query, [newToken, id, tenantId]);
   return result.rows[0] || null;
 };
 
@@ -176,6 +204,7 @@ module.exports = {
   copyBusinessHoursToEmployee,
   getEmployeesByTenant,
   getEmployeeById,
+  regenerateEmployeePortalToken,
   updateEmployee,
   replaceEmployeeServices,
   deleteEmployee,
