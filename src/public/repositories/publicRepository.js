@@ -94,10 +94,10 @@ const getEmployeeWorkingHoursForDay = async (client, tenantId, employeeId, dayOf
   return result.rows;
 };
 
-const lockUnassignedBookingSchedule = async (client, tenantId, date) => {
+const lockUnassignedBookingSchedule = async (client, tenantId, serviceId, date) => {
   await client.query(`
-    SELECT pg_advisory_xact_lock(hashtext($1::text || ':' || $2::text));
-  `, [tenantId, date]);
+    SELECT pg_advisory_xact_lock(hashtext($1::text || ':' || $2::text || ':' || $3::text));
+  `, [tenantId, serviceId, date]);
 };
 
 const getTenantBookingSettings = async (client, tenantId) => {
@@ -109,16 +109,19 @@ const getTenantBookingSettings = async (client, tenantId) => {
   return result.rows[0] || null;
 };
 
-const getExistingBookingsForDate = async (client, tenantId, employeeId, date) => {
+const getExistingBookingsForDate = async (client, tenantId, employeeId, serviceId, date) => {
   const query = `
     SELECT id, service_id, start_time, end_time, status
     FROM bookings
     WHERE tenant_id = $1
-      AND employee_id IS NOT DISTINCT FROM $2::uuid
-      AND booking_date = $3
-      AND status IN ('CONFIRMED', 'PENDING');
+      AND booking_date = $4
+      AND status IN ('CONFIRMED', 'PENDING')
+      AND (
+        ($2::uuid IS NOT NULL AND employee_id = $2::uuid)
+        OR ($2::uuid IS NULL AND employee_id IS NULL AND service_id = $3::uuid)
+      );
   `;
-  const result = await client.query(query, [tenantId, employeeId, date]);
+  const result = await client.query(query, [tenantId, employeeId, serviceId, date]);
   return result.rows;
 };
 

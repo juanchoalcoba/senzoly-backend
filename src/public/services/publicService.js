@@ -146,6 +146,7 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
     client,
     tenant.id,
     employee?.id || null,
+    service.id,
     dateStr
   );
 
@@ -208,7 +209,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
   // La constraint de exclusión protege las agendas profesionales. Las reservas
   // generales (employee_id NULL) se serializan para evitar dobles reservas.
   if (!employee) {
-    await publicRepo.lockUnassignedBookingSchedule(client, tenant.id, bookingDate);
+    await publicRepo.lockUnassignedBookingSchedule(client, tenant.id, service.id, bookingDate);
   }
 
   // 1. RE-VALIDACIÓN DE DISPONIBILIDAD EN BACKEND (Protección contra doble reserva)
