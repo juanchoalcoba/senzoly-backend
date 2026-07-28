@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS tenants (
     phone VARCHAR(50),
     address TEXT,
     description TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'trial',
+    deleted_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,11 +1,12 @@
 const db = require('../../config/db');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
+const tenantAdminService = require('../../tenant/services/tenantAdminService');
 
 const getDashboardStats = async (req, res) => {
   const client = await db.getClient();
   try {
     // Estas consultas son un ejemplo básico, se irán ampliando a medida que crezca el panel
-    const tenantsCount = await client.query('SELECT COUNT(*) as total FROM tenants');
+    const tenantsCount = await client.query('SELECT COUNT(*) as total FROM tenants WHERE deleted_at IS NULL');
     const usersCount = await client.query('SELECT COUNT(*) as total FROM users');
     
     // Suponiendo que hay suscripciones activas
@@ -31,22 +32,8 @@ const getDashboardStats = async (req, res) => {
 const getTenantsList = async (req, res) => {
   const client = await db.getClient();
   try {
-    const query = `
-      SELECT 
-        t.id, t.name, t.slug, t.country, t.created_at,
-        u.email as admin_email,
-        u.first_name || ' ' || u.last_name as admin_name,
-        s.status as subscription_status,
-        p.name as plan_name
-      FROM tenants t
-      LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'OWNER'
-      LEFT JOIN subscriptions s ON s.tenant_id = t.id
-      LEFT JOIN plans p ON s.plan_id = p.id
-      ORDER BY t.created_at DESC
-    `;
-    const result = await client.query(query);
-
-    return successResponse(res, result.rows, 'Lista de empresas obtenida');
+    const tenants = await tenantAdminService.listTenants(client);
+    return successResponse(res, tenants, 'Lista de empresas obtenida');
   } catch (error) {
     console.error('Error obteniendo lista de tenants:', error);
     return errorResponse(res, 'Error interno', [], 500);
@@ -55,7 +42,47 @@ const getTenantsList = async (req, res) => {
   }
 };
 
+const getTenantDetails = async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const tenant = await tenantAdminService.getTenantDetails(client, req.params.id);
+    return successResponse(res, tenant, 'Empresa obtenida correctamente');
+  } catch (error) {
+    if (error.message === 'Empresa no encontrada') {
+      return errorResponse(res, error.message, [], 404);
+    }
+    console.error('Error obteniendo empresa:', error);
+    return errorResponse(res, 'Error interno', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const updateTenant = (serviceMethod, successMessage) => async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const tenant = await serviceMethod(client, req.params.id);
+    return successResponse(res, tenant, successMessage);
+  } catch (error) {
+    if (error.message.includes('Empresa no encontrada') || error.message.includes('empresa eliminada')) {
+      return errorResponse(res, error.message, [], 400);
+    }
+    console.error('Error actualizando empresa:', error);
+    return errorResponse(res, 'Error interno', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const suspendTenant = updateTenant(tenantAdminService.suspendTenant, 'Empresa suspendida correctamente');
+const reactivateTenant = updateTenant(tenantAdminService.reactivateTenant, 'Empresa reactivada correctamente');
+const deleteTenant = updateTenant(tenantAdminService.softDeleteTenant, 'Empresa eliminada correctamente');
+
 module.exports = {
   getDashboardStats,
   getTenantsList,
+  getTenantDetails,
+  suspendTenant,
+  reactivateTenant,
+  deleteTenant,
 };

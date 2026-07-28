@@ -11,6 +11,7 @@
     "update:password-reset": "node update_password_reset_db.js",
     "update:legal-consent": "node update_legal_consent_db.js",
     "update:booking-settings": "node update_booking_settings_db.js",
+    "update:tenant-status": "node update_tenant_status_db.js",
     "update:service-images": "node update_service_images_db.js",
     "update:employee-commission": "node update_employee_commission_db.js",
     "update:employee-services": "node update_employee_services_db.js",

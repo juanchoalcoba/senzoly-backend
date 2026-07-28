@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { errorResponse } = require('../utils/responseUtils');
+const db = require('../config/db');
+const tenantRepo = require('../tenant/repositories/tenantRepository');
+const { isTenantOperational, getTenantAccessMessage } = require('../tenant/tenantStatus');
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -16,6 +19,11 @@ const authMiddleware = (req, res, next) => {
 
     if (!decoded.tenantId || !decoded.userId) {
       return errorResponse(res, 'Acceso denegado: Token inválido para operaciones de Tenant', [], 403);
+    }
+
+    const tenant = await tenantRepo.findTenantStatusById(db, decoded.tenantId);
+    if (!tenant || !isTenantOperational(tenant.status)) {
+      return errorResponse(res, getTenantAccessMessage(tenant?.status), [{ code: 'TENANT_UNAVAILABLE', status: tenant?.status }], 403);
     }
 
     // Guardar los datos del usuario y tenant en la request

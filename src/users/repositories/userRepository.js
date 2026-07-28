@@ -20,9 +20,12 @@ const findUserByEmail = async (client, email) => {
 
 const findUserByEmailForAuth = async (client, email) => {
   const query = `
-    SELECT id, tenant_id, email, password_hash, role, first_name, last_name, is_active, email_verified 
-    FROM users 
-    WHERE email = $1;
+    SELECT
+      u.id, u.tenant_id, u.email, u.password_hash, u.role, u.first_name, u.last_name,
+      u.is_active, u.email_verified, t.status AS tenant_status
+    FROM users u
+    JOIN tenants t ON t.id = u.tenant_id
+    WHERE u.email = $1;
   `;
   const result = await client.query(query, [email]);
   return result.rows[0] || null;

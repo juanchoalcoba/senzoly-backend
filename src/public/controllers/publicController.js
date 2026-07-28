@@ -3,6 +3,10 @@ const publicService = require('../services/publicService');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
 const isBookingConflict = (error) => error.code === '23P01';
+const isTenantUnavailable = (error) => (
+  error.message === 'Tu cuenta se encuentra suspendida. Comunícate con Senzoly para obtener más información.'
+  || error.message === 'Esta cuenta no se encuentra disponible.'
+);
 
 const getTenantBySlug = async (req, res) => {
   const { slug } = req.params;
@@ -14,6 +18,9 @@ const getTenantBySlug = async (req, res) => {
     console.error('Error en getTenantBySlug:', error);
     if (error.message === 'Negocio no encontrado') {
       return errorResponse(res, error.message, [], 404);
+    }
+    if (isTenantUnavailable(error)) {
+      return errorResponse(res, error.message, [], 403);
     }
     return errorResponse(res, 'Error al obtener información del negocio', [], 500);
   } finally {
@@ -35,6 +42,9 @@ const getSlots = async (req, res) => {
     return successResponse(res, slots, 'Horarios disponibles obtenidos correctamente');
   } catch (error) {
     console.error('Error en getSlots:', error);
+    if (isTenantUnavailable(error)) {
+      return errorResponse(res, error.message, [], 403);
+    }
     if (
       error.message.includes('encontrado') ||
       error.message.includes('disponible') ||
@@ -63,6 +73,9 @@ const getProfessionals = async (req, res) => {
     return successResponse(res, professionals, 'Profesionales disponibles obtenidos correctamente');
   } catch (error) {
     console.error('Error en getProfessionals:', error);
+    if (isTenantUnavailable(error)) {
+      return errorResponse(res, error.message, [], 403);
+    }
     if (error.message.includes('encontrado') || error.message.includes('disponible')) {
       return errorResponse(res, error.message, [], 400);
     }
@@ -94,6 +107,9 @@ const createBooking = async (req, res) => {
     console.error('Error en createBooking público:', error);
     if (isBookingConflict(error)) {
       return errorResponse(res, 'El horario seleccionado acaba de ocuparse. Por favor elige otro turno.', [], 409);
+    }
+    if (isTenantUnavailable(error)) {
+      return errorResponse(res, error.message, [], 403);
     }
     if (
       error.message.includes('obligatorios') ||

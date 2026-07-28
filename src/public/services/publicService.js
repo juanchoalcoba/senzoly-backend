@@ -1,6 +1,7 @@
 const publicRepo = require('../repositories/publicRepository');
 const serviceRepo = require('../../servicesCatalog/repositories/serviceCatalogRepository');
 const customerRepo = require('../../customers/repositories/customerRepository');
+const { isTenantOperational, getTenantAccessMessage } = require('../../tenant/tenantStatus');
 
 const BUSINESS_TIME_ZONE = process.env.BUSINESS_TIME_ZONE || 'America/Montevideo';
 
@@ -18,11 +19,18 @@ const getBusinessToday = () => {
   return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
 };
 
+const assertTenantOperational = (tenant) => {
+  if (!isTenantOperational(tenant.status)) {
+    throw new Error(getTenantAccessMessage(tenant.status));
+  }
+};
+
 const getPublicTenant = async (client, slug) => {
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) {
     throw new Error('Negocio no encontrado');
   }
+  assertTenantOperational(tenant);
 
   const services = await publicRepo.getPublicActiveServices(client, tenant.id);
   return {
@@ -47,6 +55,7 @@ const getPublicTenant = async (client, slug) => {
 const getAvailableProfessionals = async (client, slug, serviceId) => {
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) throw new Error('Negocio no encontrado');
+  assertTenantOperational(tenant);
 
   const service = await serviceRepo.getServiceById(client, tenant.id, serviceId);
   if (!service || !service.is_active) {
@@ -96,6 +105,7 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
 
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) throw new Error('Negocio no encontrado');
+  assertTenantOperational(tenant);
 
   const service = await serviceRepo.getServiceById(client, tenant.id, serviceId);
   if (!service || !service.is_active) {
@@ -193,6 +203,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
 
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) throw new Error('Negocio no encontrado');
+  assertTenantOperational(tenant);
 
   const service = await serviceRepo.getServiceById(client, tenant.id, serviceId);
   if (!service || !service.is_active) {

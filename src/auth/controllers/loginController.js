@@ -3,6 +3,7 @@ const db = require('../../config/db');
 const { findUserByEmailForAuth } = require('../../users/repositories/userRepository');
 const { generateToken } = require('../../utils/jwtUtils');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
+const { isTenantOperational, getTenantAccessMessage } = require('../../tenant/tenantStatus');
 
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -29,6 +30,15 @@ const login = async (req, res) => {
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return errorResponse(res, 'Credenciales incorrectas', [], 401);
+    }
+
+    if (!isTenantOperational(user.tenant_status)) {
+      return errorResponse(
+        res,
+        getTenantAccessMessage(user.tenant_status),
+        [{ code: 'TENANT_UNAVAILABLE', status: user.tenant_status }],
+        403
+      );
     }
 
     // Generar JWT
