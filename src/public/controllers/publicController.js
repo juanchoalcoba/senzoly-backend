@@ -25,8 +25,8 @@ const getSlots = async (req, res) => {
   const { slug } = req.params;
   const { serviceId, employeeId, date } = req.query;
 
-  if (!serviceId || !employeeId || !date) {
-    return errorResponse(res, 'serviceId, employeeId y date son parámetros obligatorios', [], 400);
+  if (!serviceId || !date) {
+    return errorResponse(res, 'serviceId y date son parámetros obligatorios', [], 400);
   }
 
   const client = await db.getClient();

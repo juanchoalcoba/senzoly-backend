@@ -102,8 +102,10 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
     throw new Error('Servicio no encontrado o no disponible');
   }
 
-  const employee = await publicRepo.getPublicActiveEmployeeForService(client, tenant.id, service.id, employeeId);
-  if (!employee) {
+  const employee = employeeId
+    ? await publicRepo.getPublicActiveEmployeeForService(client, tenant.id, service.id, employeeId)
+    : null;
+  if (employeeId && !employee) {
     throw new Error('El profesional seleccionado no está disponible para este servicio');
   }
 
@@ -113,13 +115,16 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
   const dateObj = new Date(year, month - 1, day);
   const dayOfWeek = dateObj.getDay();
 
-  // Un profesional puede tener múltiples intervalos independientes el mismo día.
-  const workingHours = await publicRepo.getEmployeeWorkingHoursForDay(
-    client,
-    tenant.id,
-    employee.id,
-    dayOfWeek
-  );
+  // Sin profesional se conserva la agenda general del negocio. Con profesional,
+  // se usan sus intervalos individuales, incluidos horarios partidos.
+  const workingHours = employee
+    ? await publicRepo.getEmployeeWorkingHoursForDay(client, tenant.id, employee.id, dayOfWeek)
+    : await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek)
+      .then((businessHour) => (
+        businessHour && !businessHour.is_closed
+          ? [{ start_time: businessHour.open_time, end_time: businessHour.close_time }]
+          : []
+      ));
   if (workingHours.length === 0) return [];
 
   const duration = service.duration_minutes;
@@ -127,11 +132,12 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
   const slotIntervalMinutes = bookingSettings?.slot_interval_minutes || 30;
   const slotAlignment = bookingSettings?.slot_alignment || 'BUSINESS_OPEN';
 
-  // Sólo bloquean las reservas activas del profesional seleccionado.
+  // En reservas sin profesional se bloquea la agenda general del tenant; en
+  // reservas con profesional, sólo bloquean las de ese mismo profesional.
   const existingBookings = await publicRepo.getExistingBookingsForDate(
     client,
     tenant.id,
-    employee.id,
+    employee?.id || null,
     dateStr
   );
 
@@ -166,7 +172,7 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
 const createPublicBooking = async (client, slug, bookingPayload) => {
   const { serviceId, employeeId, bookingDate, startTime, customer, notes } = bookingPayload;
 
-  if (!serviceId || !employeeId || !bookingDate || !startTime || !customer) {
+  if (!serviceId || !bookingDate || !startTime || !customer) {
     throw new Error('Todos los campos son obligatorios');
   }
 
@@ -184,9 +190,17 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
     throw new Error('Servicio no disponible');
   }
 
-  const employee = await publicRepo.getPublicActiveEmployeeForService(client, tenant.id, service.id, employeeId);
-  if (!employee) {
+  const employee = employeeId
+    ? await publicRepo.getPublicActiveEmployeeForService(client, tenant.id, service.id, employeeId)
+    : null;
+  if (employeeId && !employee) {
     throw new Error('El profesional seleccionado no está disponible para este servicio');
+  }
+
+  // La constraint de exclusión protege las agendas profesionales. Las reservas
+  // generales (employee_id NULL) se serializan para evitar dobles reservas.
+  if (!employee) {
+    await publicRepo.lockUnassignedBookingSchedule(client, tenant.id, bookingDate);
   }
 
   // 1. RE-VALIDACIÓN DE DISPONIBILIDAD EN BACKEND (Protección contra doble reserva)
@@ -218,7 +232,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
     tenantId: tenant.id,
     customerId: customerRecord.id,
     serviceId: service.id,
-    employeeId: employee.id,
+    employeeId: employee?.id || null,
     bookingDate,
     startTime: startTimeStr,
     endTime: endTimeStr,

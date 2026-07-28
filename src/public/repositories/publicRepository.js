@@ -54,17 +54,32 @@ const getPublicActiveEmployeeForService = async (client, tenantId, serviceId, em
   return result.rows[0] || null;
 };
 
+const getTenantBusinessHourForDay = async (client, tenantId, dayOfWeek) => {
+  const result = await client.query(`
+    SELECT open_time, close_time, is_closed
+    FROM business_hours
+    WHERE tenant_id = $1 AND day_of_week = $2;
+  `, [tenantId, dayOfWeek]);
+  return result.rows[0] || null;
+};
+
 const getEmployeeWorkingHoursForDay = async (client, tenantId, employeeId, dayOfWeek) => {
   const query = `
     SELECT start_time, end_time
     FROM employee_working_hours
     WHERE tenant_id = $1
-      AND employee_id = $2
+      AND employee_id IS NOT DISTINCT FROM $2::uuid
       AND day_of_week = $3
     ORDER BY start_time ASC;
   `;
   const result = await client.query(query, [tenantId, employeeId, dayOfWeek]);
   return result.rows;
+};
+
+const lockUnassignedBookingSchedule = async (client, tenantId, date) => {
+  await client.query(`
+    SELECT pg_advisory_xact_lock(hashtext($1::text || ':' || $2::text));
+  `, [tenantId, date]);
 };
 
 const getTenantBookingSettings = async (client, tenantId) => {
@@ -119,8 +134,10 @@ module.exports = {
   getPublicActiveServices,
   getPublicActiveEmployeesByService,
   getPublicActiveEmployeeForService,
+  getTenantBusinessHourForDay,
   getEmployeeWorkingHoursForDay,
   getTenantBookingSettings,
   getExistingBookingsForDate,
+  lockUnassignedBookingSchedule,
   createBookingRecord,
 };
