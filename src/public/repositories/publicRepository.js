@@ -28,12 +28,21 @@ const getPublicActiveEmployeesByService = async (client, tenantId, serviceId) =>
   const result = await client.query(`
     SELECT e.id, e.first_name, e.last_name
     FROM employees e
-    JOIN employee_services es ON es.employee_id = e.id
-    JOIN services s ON s.id = es.service_id
     WHERE e.tenant_id = $1
-      AND es.service_id = $2
-      AND s.tenant_id = $1
       AND e.is_active = true
+      AND (
+        EXISTS (
+          SELECT 1
+          FROM employee_services es
+          JOIN services s ON s.id = es.service_id
+          WHERE es.employee_id = e.id
+            AND es.service_id = $2
+            AND s.tenant_id = $1
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM employee_services es WHERE es.employee_id = e.id
+        )
+      )
     ORDER BY e.first_name ASC, e.last_name ASC;
   `, [tenantId, serviceId]);
   return result.rows;
@@ -43,13 +52,22 @@ const getPublicActiveEmployeeForService = async (client, tenantId, serviceId, em
   const result = await client.query(`
     SELECT e.id, e.first_name, e.last_name
     FROM employees e
-    JOIN employee_services es ON es.employee_id = e.id
-    JOIN services s ON s.id = es.service_id
     WHERE e.id = $1
       AND e.tenant_id = $2
-      AND es.service_id = $3
-      AND s.tenant_id = $2
-      AND e.is_active = true;
+      AND e.is_active = true
+      AND (
+        EXISTS (
+          SELECT 1
+          FROM employee_services es
+          JOIN services s ON s.id = es.service_id
+          WHERE es.employee_id = e.id
+            AND es.service_id = $3
+            AND s.tenant_id = $2
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM employee_services es WHERE es.employee_id = e.id
+        )
+      );
   `, [employeeId, tenantId, serviceId]);
   return result.rows[0] || null;
 };
@@ -96,7 +114,7 @@ const getExistingBookingsForDate = async (client, tenantId, employeeId, date) =>
     SELECT id, service_id, start_time, end_time, status
     FROM bookings
     WHERE tenant_id = $1
-      AND employee_id = $2
+      AND employee_id IS NOT DISTINCT FROM $2::uuid
       AND booking_date = $3
       AND status IN ('CONFIRMED', 'PENDING');
   `;

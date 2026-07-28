@@ -117,7 +117,7 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
 
   // Sin profesional se conserva la agenda general del negocio. Con profesional,
   // se usan sus intervalos individuales, incluidos horarios partidos.
-  const workingHours = employee
+  let workingHours = employee
     ? await publicRepo.getEmployeeWorkingHoursForDay(client, tenant.id, employee.id, dayOfWeek)
     : await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek)
       .then((businessHour) => (
@@ -125,6 +125,14 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
           ? [{ start_time: businessHour.open_time, end_time: businessHour.close_time }]
           : []
       ));
+
+  if (employee && workingHours.length === 0) {
+    const businessHour = await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek);
+    if (businessHour && !businessHour.is_closed) {
+      workingHours = [{ start_time: businessHour.open_time, end_time: businessHour.close_time }];
+    }
+  }
+
   if (workingHours.length === 0) return [];
 
   const duration = service.duration_minutes;
