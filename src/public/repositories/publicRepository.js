@@ -54,14 +54,17 @@ const getPublicActiveEmployeeForService = async (client, tenantId, serviceId, em
   return result.rows[0] || null;
 };
 
-const getTenantBusinessHourForDay = async (client, tenantId, dayOfWeek) => {
+const getEmployeeWorkingHoursForDay = async (client, tenantId, employeeId, dayOfWeek) => {
   const query = `
-    SELECT open_time, close_time, is_closed
-    FROM business_hours
-    WHERE tenant_id = $1 AND day_of_week = $2;
+    SELECT start_time, end_time
+    FROM employee_working_hours
+    WHERE tenant_id = $1
+      AND employee_id = $2
+      AND day_of_week = $3
+    ORDER BY start_time ASC;
   `;
-  const result = await client.query(query, [tenantId, dayOfWeek]);
-  return result.rows[0] || null;
+  const result = await client.query(query, [tenantId, employeeId, dayOfWeek]);
+  return result.rows;
 };
 
 const getTenantBookingSettings = async (client, tenantId) => {
@@ -73,15 +76,16 @@ const getTenantBookingSettings = async (client, tenantId) => {
   return result.rows[0] || null;
 };
 
-const getExistingBookingsForDate = async (client, tenantId, date) => {
+const getExistingBookingsForDate = async (client, tenantId, employeeId, date) => {
   const query = `
     SELECT id, service_id, start_time, end_time, status
     FROM bookings
-    WHERE tenant_id = $1 
-      AND booking_date = $2 
+    WHERE tenant_id = $1
+      AND employee_id = $2
+      AND booking_date = $3
       AND status IN ('CONFIRMED', 'PENDING');
   `;
-  const result = await client.query(query, [tenantId, date]);
+  const result = await client.query(query, [tenantId, employeeId, date]);
   return result.rows;
 };
 
@@ -115,7 +119,7 @@ module.exports = {
   getPublicActiveServices,
   getPublicActiveEmployeesByService,
   getPublicActiveEmployeeForService,
-  getTenantBusinessHourForDay,
+  getEmployeeWorkingHoursForDay,
   getTenantBookingSettings,
   getExistingBookingsForDate,
   createBookingRecord,

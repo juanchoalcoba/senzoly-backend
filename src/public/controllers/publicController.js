@@ -23,15 +23,15 @@ const getTenantBySlug = async (req, res) => {
 
 const getSlots = async (req, res) => {
   const { slug } = req.params;
-  const { serviceId, date } = req.query;
+  const { serviceId, employeeId, date } = req.query;
 
-  if (!serviceId || !date) {
-    return errorResponse(res, 'serviceId y date son parámetros obligatorios', [], 400);
+  if (!serviceId || !employeeId || !date) {
+    return errorResponse(res, 'serviceId, employeeId y date son parámetros obligatorios', [], 400);
   }
 
   const client = await db.getClient();
   try {
-    const slots = await publicService.getAvailableSlots(client, slug, serviceId, date);
+    const slots = await publicService.getAvailableSlots(client, slug, serviceId, employeeId, date);
     return successResponse(res, slots, 'Horarios disponibles obtenidos correctamente');
   } catch (error) {
     console.error('Error en getSlots:', error);

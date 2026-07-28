@@ -1,5 +1,6 @@
 const {
   createEmployee,
+  copyBusinessHoursToEmployee,
   getEmployeeById,
   updateEmployee,
   replaceEmployeeServices,
@@ -84,6 +85,7 @@ const addEmployee = async (client, tenantId, employeeData) => {
     commissionType,
     commissionValue
   );
+  await copyBusinessHoursToEmployee(client, employee.id, tenantId);
   await replaceEmployeeServices(client, employee.id, tenantId, serviceIds);
   return employee;
 };

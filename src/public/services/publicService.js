@@ -91,7 +91,7 @@ const validateBookingDate = (dateStr) => {
   }
 };
 
-const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
+const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) => {
   validateBookingDate(dateStr);
 
   const tenant = await publicRepo.findTenantBySlug(client, slug);
@@ -102,50 +102,62 @@ const getAvailableSlots = async (client, slug, serviceId, dateStr) => {
     throw new Error('Servicio no encontrado o no disponible');
   }
 
+  const employee = await publicRepo.getPublicActiveEmployeeForService(client, tenant.id, service.id, employeeId);
+  if (!employee) {
+    throw new Error('El profesional seleccionado no está disponible para este servicio');
+  }
+
   // Determinar día de la semana (0=Domingo ... 6=Sábado)
   // Usar parse local seguro evitando desplazamientos por zona horaria
   const [year, month, day] = dateStr.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day);
   const dayOfWeek = dateObj.getDay();
 
-  // Obtener horario comercial para ese día
-  const businessHour = await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek);
-  if (!businessHour || businessHour.is_closed) {
-    return []; // El negocio está cerrado este día
-  }
+  // Un profesional puede tener múltiples intervalos independientes el mismo día.
+  const workingHours = await publicRepo.getEmployeeWorkingHoursForDay(
+    client,
+    tenant.id,
+    employee.id,
+    dayOfWeek
+  );
+  if (workingHours.length === 0) return [];
 
-  const openMin = timeToMinutes(businessHour.open_time);
-  const closeMin = timeToMinutes(businessHour.close_time);
   const duration = service.duration_minutes;
   const bookingSettings = await publicRepo.getTenantBookingSettings(client, tenant.id);
   const slotIntervalMinutes = bookingSettings?.slot_interval_minutes || 30;
   const slotAlignment = bookingSettings?.slot_alignment || 'BUSINESS_OPEN';
 
-  // Obtener reservas existentes para ese día
-  const existingBookings = await publicRepo.getExistingBookingsForDate(client, tenant.id, dateStr);
+  // Sólo bloquean las reservas activas del profesional seleccionado.
+  const existingBookings = await publicRepo.getExistingBookingsForDate(
+    client,
+    tenant.id,
+    employee.id,
+    dateStr
+  );
 
   const slots = [];
-  const firstSlot = slotAlignment === 'CLOCK_HOUR'
-    ? Math.ceil(openMin / slotIntervalMinutes) * slotIntervalMinutes
-    : openMin;
+  for (const workingHour of workingHours) {
+    const openMin = timeToMinutes(workingHour.start_time);
+    const closeMin = timeToMinutes(workingHour.end_time);
+    const firstSlot = slotAlignment === 'CLOCK_HOUR'
+      ? Math.ceil(openMin / slotIntervalMinutes) * slotIntervalMinutes
+      : openMin;
 
-  for (let current = firstSlot; current + duration <= closeMin; current += slotIntervalMinutes) {
-    const slotStart = current;
-    const slotEnd = current + duration;
+    for (let current = firstSlot; current + duration <= closeMin; current += slotIntervalMinutes) {
+      const slotStart = current;
+      const slotEnd = current + duration;
 
-    // Verificar si se superpone con alguna reserva existente
-    const hasConflict = existingBookings.some((b) => {
-      const bStart = timeToMinutes(b.start_time);
-      const bEnd = timeToMinutes(b.end_time);
+      const hasConflict = existingBookings.some((b) => {
+        const bStart = timeToMinutes(b.start_time);
+        const bEnd = timeToMinutes(b.end_time);
+        return Math.max(slotStart, bStart) < Math.min(slotEnd, bEnd);
+      });
 
-      // Superposición: max(slotStart, bStart) < min(slotEnd, bEnd)
-      return Math.max(slotStart, bStart) < Math.min(slotEnd, bEnd);
-    });
-
-    slots.push({
-      time: minutesToTime(slotStart),
-      available: !hasConflict,
-    });
+      slots.push({
+        time: minutesToTime(slotStart),
+        available: !hasConflict,
+      });
+    }
   }
 
   return slots;
@@ -178,7 +190,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
   }
 
   // 1. RE-VALIDACIÓN DE DISPONIBILIDAD EN BACKEND (Protección contra doble reserva)
-  const slots = await getAvailableSlots(client, slug, serviceId, bookingDate);
+  const slots = await getAvailableSlots(client, slug, serviceId, employeeId, bookingDate);
   const normalizedStartTime = startTime.substring(0, 5);
 
   const selectedSlot = slots.find((slot) => slot.time === normalizedStartTime);

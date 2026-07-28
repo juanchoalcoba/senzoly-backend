@@ -23,6 +23,42 @@ const createEmployee = async (client, tenantId, firstName, lastName, email, phon
   return result.rows[0];
 };
 
+const copyBusinessHoursToEmployee = async (client, employeeId, tenantId) => {
+  const businessHours = await client.query(`
+    SELECT day_of_week, open_time, close_time
+    FROM business_hours
+    WHERE tenant_id = $1
+      AND is_closed = false
+    ORDER BY day_of_week ASC;
+  `, [tenantId]);
+
+  if (businessHours.rowCount === 0) return [];
+
+  const values = [];
+  const placeholders = businessHours.rows.map((hour, index) => {
+    const offset = index * 6;
+    values.push(
+      uuidv4(),
+      tenantId,
+      employeeId,
+      hour.day_of_week,
+      hour.open_time,
+      hour.close_time
+    );
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
+  });
+
+  const result = await client.query(`
+    INSERT INTO employee_working_hours (
+      id, tenant_id, employee_id, day_of_week, start_time, end_time
+    )
+    VALUES ${placeholders.join(', ')}
+    RETURNING id, tenant_id, employee_id, day_of_week, start_time, end_time;
+  `, values);
+
+  return result.rows;
+};
+
 const getEmployeesByTenant = async (client, tenantId) => {
   const query = `
     SELECT id, first_name, last_name, email, phone, is_active, is_active AS active,
@@ -137,6 +173,7 @@ const countEmployeesByTenant = async (client, tenantId) => {
 
 module.exports = {
   createEmployee,
+  copyBusinessHoursToEmployee,
   getEmployeesByTenant,
   getEmployeeById,
   updateEmployee,
