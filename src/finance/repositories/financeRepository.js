@@ -321,6 +321,69 @@ const getMovements = async (client, tenantId, { startDate, endDate, employeeId, 
   };
 };
 
+const createExpense = async (client, tenantId, { amount, category, paymentMethod, notes, createdByUserId, createdByName }) => {
+  const query = `
+    INSERT INTO financial_movements (
+      tenant_id, type, category, gross_amount, employee_payout, business_net_income,
+      service_name_snapshot, service_duration_snapshot, payment_method,
+      completed_by_type, completed_by_id, completed_by_name, notes
+    )
+    VALUES ($1, 'EXPENSE', COALESCE($2, 'OPERATIONAL_EXPENSE'), $3, 0, -$3, 'Egreso Operativo', 0, COALESCE($4, 'CASH'), 'USER', $5, $6, $7)
+    RETURNING *;
+  `;
+  const result = await client.query(query, [
+    tenantId,
+    category || 'OPERATIONAL_EXPENSE',
+    amount,
+    paymentMethod || 'CASH',
+    createdByUserId || null,
+    createdByName || 'Propietario',
+    notes || null,
+  ]);
+  return result.rows[0];
+};
+
+const createEmployeePayout = async (client, tenantId, { employeeId, amount, paymentMethod, notes }) => {
+  const query = `
+    INSERT INTO employee_payouts (
+      tenant_id, employee_id, amount, payment_method, notes
+    )
+    VALUES ($1, $2, $3, COALESCE($4, 'TRANSFER'), $5)
+    RETURNING *;
+  `;
+  const result = await client.query(query, [
+    tenantId,
+    employeeId,
+    amount,
+    paymentMethod || 'TRANSFER',
+    notes || null,
+  ]);
+  return result.rows[0];
+};
+
+const getEmployeePayouts = async (client, tenantId, employeeId = null) => {
+  const query = `
+    SELECT 
+      p.id, p.employee_id, p.amount, p.payment_method, p.notes, p.created_at,
+      CONCAT(e.first_name, ' ', e.last_name) AS employee_name
+    FROM employee_payouts p
+    JOIN employees e ON p.employee_id = e.id
+    WHERE p.tenant_id = $1
+      AND ($2::uuid IS NULL OR p.employee_id = $2::uuid)
+    ORDER BY p.created_at DESC;
+  `;
+  const result = await client.query(query, [tenantId, employeeId || null]);
+  return result.rows.map((row) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
+    amount: parseFloat(row.amount),
+    paymentMethod: row.payment_method,
+    notes: row.notes,
+    createdAt: row.created_at,
+  }));
+};
+
 module.exports = {
   getOverview,
   getKPIs,
@@ -328,4 +391,8 @@ module.exports = {
   getEmployeeRanking,
   getEmployeeDetail,
   getMovements,
+  createExpense,
+  createEmployeePayout,
+  getEmployeePayouts,
 };
+

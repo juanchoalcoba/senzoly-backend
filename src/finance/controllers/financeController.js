@@ -6,6 +6,9 @@ const {
   getEmployeeRanking,
   getEmployeeDetail,
   getMovements,
+  createExpense,
+  createEmployeePayout,
+  getEmployeePayouts,
 } = require('../repositories/financeRepository');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
@@ -97,10 +100,80 @@ const getMovementsData = async (req, res) => {
   }
 };
 
+const createExpenseData = async (req, res) => {
+  const { tenantId, id: userId, firstName, lastName } = req.user;
+  const { amount, category, paymentMethod, notes } = req.body;
+
+  if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+    return errorResponse(res, 'El monto del egreso debe ser mayor a 0', [], 400);
+  }
+
+  const client = await db.getClient();
+  try {
+    const expense = await createExpense(client, tenantId, {
+      amount: parseFloat(amount),
+      category,
+      paymentMethod,
+      notes,
+      createdByUserId: userId,
+      createdByName: `${firstName || ''} ${lastName || ''}`.trim() || 'Propietario',
+    });
+    return successResponse(res, expense, 'Egreso registrado correctamente');
+  } catch (error) {
+    console.error('Error en createExpenseData:', error);
+    return errorResponse(res, 'Error al registrar egreso', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const createEmployeePayoutData = async (req, res) => {
+  const { tenantId } = req.user;
+  const { employeeId, amount, paymentMethod, notes } = req.body;
+
+  if (!employeeId || !amount || isNaN(amount) || parseFloat(amount) <= 0) {
+    return errorResponse(res, 'Empleado y monto son obligatorios', [], 400);
+  }
+
+  const client = await db.getClient();
+  try {
+    const payout = await createEmployeePayout(client, tenantId, {
+      employeeId,
+      amount: parseFloat(amount),
+      paymentMethod,
+      notes,
+    });
+    return successResponse(res, payout, 'Liquidación registrada correctamente');
+  } catch (error) {
+    console.error('Error en createEmployeePayoutData:', error);
+    return errorResponse(res, 'Error al registrar liquidación', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const getEmployeePayoutsData = async (req, res) => {
+  const { tenantId } = req.user;
+  const { employeeId } = req.query;
+  const client = await db.getClient();
+  try {
+    const payouts = await getEmployeePayouts(client, tenantId, employeeId);
+    return successResponse(res, payouts, 'Historial de liquidaciones obtenido correctamente');
+  } catch (error) {
+    console.error('Error en getEmployeePayoutsData:', error);
+    return errorResponse(res, 'Error al obtener liquidaciones', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getDashboardData,
   getChartSeriesData,
   getEmployeeRankingData,
   getEmployeeDetailData,
   getMovementsData,
+  createExpenseData,
+  createEmployeePayoutData,
+  getEmployeePayoutsData,
 };

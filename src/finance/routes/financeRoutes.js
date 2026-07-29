@@ -5,6 +5,9 @@ const {
   getEmployeeRankingData,
   getEmployeeDetailData,
   getMovementsData,
+  createExpenseData,
+  createEmployeePayoutData,
+  getEmployeePayoutsData,
 } = require('../controllers/financeController');
 const authMiddleware = require('../../middlewares/authMiddleware');
 
@@ -18,5 +21,10 @@ router.get('/charts', getChartSeriesData);
 router.get('/employees', getEmployeeRankingData);
 router.get('/employees/:id', getEmployeeDetailData);
 router.get('/movements', getMovementsData);
+
+// Fase 3: Egresos y Liquidaciones
+router.post('/expenses', createExpenseData);
+router.post('/payouts', createEmployeePayoutData);
+router.get('/payouts', getEmployeePayoutsData);
 
 module.exports = router;
