@@ -64,13 +64,19 @@ const registerCompany = async (payload) => {
       slotAlignment: businessType.slug === 'canchas' ? 'CLOCK_HOUR' : 'BUSINESS_OPEN',
     });
 
-    // Crear Suscripción (Plan Básico, status TRIAL o ACTIVE)
+    // Crear Suscripción (Plan Básico, status TRIAL de 30 días)
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
     await subscriptionRepo.createSubscription(
       client,
       subscriptionId,
       tenantId,
       basicPlan.id,
-      'ACTIVE'
+      'TRIAL',
+      now,
+      expiresAt
     );
 
     // Hashear Password y crear Owner

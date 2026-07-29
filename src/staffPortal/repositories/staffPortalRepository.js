@@ -5,7 +5,7 @@ const getEmployeeByToken = async (client, token) => {
       t.name as tenant_name, t.slug as tenant_slug, t.phone as tenant_phone, t.address as tenant_address
     FROM employees e
     JOIN tenants t ON e.tenant_id = t.id
-    WHERE e.portal_token = $1 AND e.is_active = true AND t.deleted_at IS NULL;
+    WHERE e.portal_token = $1 AND e.is_active = true AND t.deleted_at IS NULL AND t.status IN ('trial', 'active');
   `;
   const result = await client.query(query, [token]);
   return result.rows[0] || null;
