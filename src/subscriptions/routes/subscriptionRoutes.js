@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const subscriptionController = require('../controllers/subscriptionController');
 const authMiddleware = require('../../middlewares/authMiddleware');
+const webhookSignatureMiddleware = require('../middlewares/webhookSignatureMiddleware');
 
 // Endpoint público para webhook de MercadoPago
-router.post('/webhook', subscriptionController.handleWebhook);
+router.post('/webhook', webhookSignatureMiddleware, subscriptionController.handleWebhook);
 
 // Endpoints protegidos para Tenants
 router.get('/status', authMiddleware, subscriptionController.getSubscriptionStatus);

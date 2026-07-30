@@ -159,22 +159,22 @@ const handleWebhook = async (body, query) => {
       return { handled: true, message: 'Pago sin external_reference' };
     }
 
-    // IDEMPOTENCIA: Verificar si ya fue procesado como aprobado
+    // Obtener suscripción actual
+    const currentSub = await subscriptionRepo.getSubscriptionByTenantId(client, tenantId);
+    const planId = mpPayment.metadata?.plan_id || (currentSub ? currentSub.plan_id : null);
+
+    // IDEMPOTENCIA: Si el pago ya fue registrado con el MISMO estado, ignorar duplicado
     const existingPayment = await subscriptionRepo.findPaymentByMpId(client, paymentId);
-    if (existingPayment && existingPayment.status === 'approved') {
-      console.log(`[Webhook] Pago ${paymentId} ya fue procesado previamente como aprobado.`);
+    if (existingPayment && existingPayment.status === mpPayment.status) {
+      console.log(`[Webhook] Pago ${paymentId} ya fue procesado con estado ${mpPayment.status}. Ignorado.`);
       await subscriptionRepo.logWebhookEvent(client, {
         eventType: 'webhook_duplicate_ignored',
         paymentId,
         tenantId,
         status: 'IGNORED',
       });
-      return { handled: true, message: 'Pago ya procesado previamente' };
+      return { handled: true, message: 'Estado ya procesado previamente' };
     }
-
-    // Obtener suscripción actual
-    const currentSub = await subscriptionRepo.getSubscriptionByTenantId(client, tenantId);
-    const planId = mpPayment.metadata?.plan_id || (currentSub ? currentSub.plan_id : null);
 
     if (mpPayment.status === 'approved') {
       // Calcular nueva fecha de vencimiento: + 30 días desde max(NOW(), expires_at actual)
@@ -248,6 +248,49 @@ const handleWebhook = async (body, query) => {
       });
 
       console.log(`[Webhook] Pago ${paymentId} APROBADO. Tenant ${tenantId} activado hasta ${nextExpires.toISOString()}`);
+    } else if (['refunded', 'charged_back'].includes(mpPayment.status)) {
+      // Reversión de pago: actualizar registro y suspender acceso
+      await client.query('BEGIN');
+
+      await subscriptionRepo.recordPayment(client, {
+        tenantId,
+        subscriptionId: currentSub?.id || null,
+        planId: planId || currentSub?.plan_id || null,
+        paymentId: mpPayment.id,
+        merchantOrderId: mpPayment.order?.id || null,
+        preferenceId: mpPayment.preference_id || null,
+        payerEmail: mpPayment.payer?.email || null,
+        transactionAmount: mpPayment.transaction_amount,
+        paymentMethod: mpPayment.payment_method_id || null,
+        status: mpPayment.status,
+        statusDetail: mpPayment.status_detail || null,
+        dateApproved: mpPayment.date_approved || null,
+        externalReference: tenantId,
+        rawResponse: mpPayment,
+      });
+
+      if (currentSub && ['ACTIVE', 'active', 'TRIAL', 'trial'].includes(currentSub.status)) {
+        await subscriptionRepo.updateSubscriptionStatusAndExpiration(
+          client,
+          tenantId,
+          currentSub.plan_id,
+          'SUSPENDED',
+          currentSub.expires_at,
+          currentSub.next_billing_date
+        );
+        await tenantRepo.updateTenantStatus(client, tenantId, 'suspended');
+      }
+
+      await client.query('COMMIT');
+
+      await subscriptionRepo.logWebhookEvent(client, {
+        eventType: `payment_${mpPayment.status}`,
+        paymentId: mpPayment.id,
+        tenantId,
+        status: 'REVERSED',
+      });
+
+      console.log(`[Webhook] Pago ${paymentId} ${mpPayment.status.toUpperCase()}. Tenant ${tenantId} suspendido.`);
     } else {
       // Registrar estado pendiente/rechazado sin cambiar estado de tenant
       if (currentSub) {
