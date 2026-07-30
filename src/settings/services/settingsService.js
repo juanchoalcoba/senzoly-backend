@@ -70,6 +70,26 @@ const updateHours = async (client, tenantId, hoursArray) => {
       if (day.openTime >= day.closeTime) {
         throw new Error(`La hora de apertura debe ser anterior a la hora de cierre`);
       }
+
+      // Validación de pausa opcional
+      const bs = day.breakStart ? day.breakStart.substring(0, 5) : '';
+      const be = day.breakEnd ? day.breakEnd.substring(0, 5) : '';
+      const hasBreakStart = bs !== '';
+      const hasBreakEnd = be !== '';
+
+      if (hasBreakStart !== hasBreakEnd) {
+        throw new Error('Debe especificar tanto inicio como fin de la pausa');
+      }
+      if (hasBreakStart && hasBreakEnd) {
+        if (bs >= be) {
+          throw new Error('La hora de inicio de pausa debe ser anterior a la de fin');
+        }
+        const op = day.openTime.substring(0, 5);
+        const cl = day.closeTime.substring(0, 5);
+        if (bs < op || be > cl) {
+          throw new Error('La pausa debe estar dentro del horario de apertura y cierre');
+        }
+      }
     }
   }
 
@@ -81,6 +101,8 @@ const updateHours = async (client, tenantId, hoursArray) => {
       openTime: day.openTime,
       closeTime: day.closeTime,
       isClosed: Boolean(day.isClosed),
+      breakStart: day.breakStart || null,
+      breakEnd: day.breakEnd || null,
     });
     updatedHours.push(saved);
   }

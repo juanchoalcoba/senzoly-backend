@@ -28,7 +28,7 @@ const updateTenantProfile = async (client, tenantId, updates) => {
 
 const getBusinessHours = async (client, tenantId) => {
   const query = `
-    SELECT id, tenant_id, day_of_week, open_time, close_time, is_closed, created_at, updated_at
+    SELECT id, tenant_id, day_of_week, open_time, close_time, is_closed, break_start, break_end, created_at, updated_at
     FROM business_hours
     WHERE tenant_id = $1
     ORDER BY day_of_week ASC;
@@ -38,19 +38,21 @@ const getBusinessHours = async (client, tenantId) => {
 };
 
 const upsertBusinessHour = async (client, tenantId, dayData) => {
-  const { dayOfWeek, openTime, closeTime, isClosed } = dayData;
+  const { dayOfWeek, openTime, closeTime, isClosed, breakStart, breakEnd } = dayData;
   const id = uuidv4();
 
   const query = `
-    INSERT INTO business_hours (id, tenant_id, day_of_week, open_time, close_time, is_closed)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO business_hours (id, tenant_id, day_of_week, open_time, close_time, is_closed, break_start, break_end)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (tenant_id, day_of_week) 
     DO UPDATE SET
       open_time = EXCLUDED.open_time,
       close_time = EXCLUDED.close_time,
       is_closed = EXCLUDED.is_closed,
+      break_start = EXCLUDED.break_start,
+      break_end = EXCLUDED.break_end,
       updated_at = CURRENT_TIMESTAMP
-    RETURNING id, tenant_id, day_of_week, open_time, close_time, is_closed, updated_at;
+    RETURNING id, tenant_id, day_of_week, open_time, close_time, is_closed, break_start, break_end, updated_at;
   `;
   const result = await client.query(query, [
     id,
@@ -58,7 +60,9 @@ const upsertBusinessHour = async (client, tenantId, dayData) => {
     dayOfWeek,
     openTime || '09:00:00',
     closeTime || '19:00:00',
-    isClosed ?? false
+    isClosed ?? false,
+    breakStart || null,
+    breakEnd || null
   ]);
   return result.rows[0];
 };

@@ -165,6 +165,8 @@ CREATE TABLE IF NOT EXISTS business_hours (
     open_time TIME DEFAULT '09:00:00',
     close_time TIME DEFAULT '19:00:00',
     is_closed BOOLEAN DEFAULT false,
+    break_start TIME DEFAULT NULL,
+    break_end TIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_tenant_day UNIQUE (tenant_id, day_of_week)

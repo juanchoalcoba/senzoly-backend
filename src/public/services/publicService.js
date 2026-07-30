@@ -125,23 +125,28 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
   const dateObj = new Date(year, month - 1, day);
   const dayOfWeek = dateObj.getDay();
 
+  // Obtener horario general del negocio (para pausa y fallback)
+  const businessHour = await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek);
+
   // Sin profesional se conserva la agenda general del negocio. Con profesional,
   // se usan sus intervalos individuales, incluidos horarios partidos.
   let workingHours = employee
     ? await publicRepo.getEmployeeWorkingHoursForDay(client, tenant.id, employee.id, dayOfWeek)
-    : await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek)
-      .then((businessHour) => (
-        businessHour && !businessHour.is_closed
-          ? [{ start_time: businessHour.open_time, end_time: businessHour.close_time }]
-          : []
-      ));
+    : (businessHour && !businessHour.is_closed
+        ? [{ start_time: businessHour.open_time, end_time: businessHour.close_time }]
+        : []);
 
   if (employee && workingHours.length === 0) {
-    const businessHour = await publicRepo.getTenantBusinessHourForDay(client, tenant.id, dayOfWeek);
     if (businessHour && !businessHour.is_closed) {
       workingHours = [{ start_time: businessHour.open_time, end_time: businessHour.close_time }];
     }
   }
+
+  // Pausa opcional desde el horario general del negocio
+  const breakStart = businessHour?.break_start;
+  const breakEnd = businessHour?.break_end;
+  const breakStartMin = breakStart ? timeToMinutes(breakStart) : null;
+  const breakEndMin = breakEnd ? timeToMinutes(breakEnd) : null;
 
   if (workingHours.length === 0) return [];
 
@@ -171,6 +176,13 @@ const getAvailableSlots = async (client, slug, serviceId, employeeId, dateStr) =
     for (let current = firstSlot; current + duration <= closeMin; current += slotIntervalMinutes) {
       const slotStart = current;
       const slotEnd = current + duration;
+
+      // Excluir slots que solapan con la pausa (aunque sea parcialmente)
+      if (breakStartMin !== null && breakEndMin !== null) {
+        if (slotStart < breakEndMin && slotEnd > breakStartMin) {
+          continue;
+        }
+      }
 
       const hasConflict = existingBookings.some((b) => {
         const bStart = timeToMinutes(b.start_time);

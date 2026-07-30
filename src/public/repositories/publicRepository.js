@@ -74,7 +74,7 @@ const getPublicActiveEmployeeForService = async (client, tenantId, serviceId, em
 
 const getTenantBusinessHourForDay = async (client, tenantId, dayOfWeek) => {
   const result = await client.query(`
-    SELECT open_time, close_time, is_closed
+    SELECT open_time, close_time, is_closed, break_start, break_end
     FROM business_hours
     WHERE tenant_id = $1 AND day_of_week = $2;
   `, [tenantId, dayOfWeek]);
