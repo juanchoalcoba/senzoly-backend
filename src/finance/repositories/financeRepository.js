@@ -2,6 +2,7 @@ const getOverview = async (client, tenantId, startDate, endDate) => {
   const query = `
     SELECT 
       COALESCE(SUM(CASE WHEN type = 'INCOME' THEN gross_amount ELSE 0 END), 0) AS gross_total,
+      COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN gross_amount ELSE 0 END), 0) AS expenses_total,
       COALESCE(SUM(business_net_income), 0) AS net_total,
       COALESCE(SUM(CASE WHEN type = 'INCOME' THEN employee_payout ELSE 0 END), 0) AS payout_total,
       COUNT(CASE WHEN type = 'INCOME' THEN id END)::int AS completed_services_count,
@@ -15,6 +16,7 @@ const getOverview = async (client, tenantId, startDate, endDate) => {
   const row = result.rows[0];
   return {
     grossTotal: parseFloat(row.gross_total),
+    expensesTotal: parseFloat(row.expenses_total),
     netTotal: parseFloat(row.net_total),
     payoutTotal: parseFloat(row.payout_total),
     completedServicesCount: parseInt(row.completed_services_count, 10),
@@ -245,7 +247,7 @@ const getEmployeeDetail = async (client, tenantId, employeeId, startDate, endDat
   };
 };
 
-const getMovements = async (client, tenantId, { startDate, endDate, employeeId, serviceId, paymentMethod, limit = 50, offset = 0 }) => {
+const getMovements = async (client, tenantId, { startDate, endDate, employeeId, serviceId, paymentMethod, type, limit = 50, offset = 0 }) => {
   const conditions = ['tenant_id = $1'];
   const params = [tenantId];
   let paramIdx = 2;
@@ -273,6 +275,11 @@ const getMovements = async (client, tenantId, { startDate, endDate, employeeId, 
   if (paymentMethod) {
     conditions.push(`payment_method = $${paramIdx}`);
     params.push(paymentMethod);
+    paramIdx++;
+  }
+  if (type) {
+    conditions.push(`type = $${paramIdx}`);
+    params.push(type);
     paramIdx++;
   }
 

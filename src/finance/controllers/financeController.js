@@ -79,7 +79,7 @@ const getEmployeeDetailData = async (req, res) => {
 
 const getMovementsData = async (req, res) => {
   const { tenantId } = req.user;
-  const { startDate, endDate, employeeId, serviceId, paymentMethod, limit, offset } = req.query;
+  const { startDate, endDate, employeeId, serviceId, paymentMethod, type, limit, offset } = req.query;
   const client = await db.getClient();
   try {
     const result = await getMovements(client, tenantId, {
@@ -88,6 +88,7 @@ const getMovementsData = async (req, res) => {
       employeeId,
       serviceId,
       paymentMethod,
+      type,
       limit: parseInt(limit, 10) || 50,
       offset: parseInt(offset, 10) || 0,
     });
