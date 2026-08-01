@@ -39,7 +39,7 @@ async function updateDb() {
     console.log('Updating plans...');
     await client.query(`
       INSERT INTO plans (id, name, slug, price, billing_period, max_users, max_locations, max_resources, max_bookings) VALUES 
-      ('018e6e58-3d2c-7b00-8000-000000000001', 'Prueba', 'prueba', 0.00, 'MONTHLY', 8, 1, 1, 20),
+      ('018e6e58-3d2c-7b00-8000-000000000001', 'Prueba', 'prueba', 0.00, 'MONTHLY', 8, 1, 1, -1),
       ('018e6e58-3d2c-7b00-8000-000000000002', 'Solo', 'solo', 1490.00, 'MONTHLY', 1, 1, -1, -1),
       ('018e6e58-3d2c-7b00-8000-000000000003', 'Equipo', 'equipo', 2490.00, 'MONTHLY', 8, 1, -1, -1),
       ('018e6e58-3d2c-7b00-8000-000000000004', 'Pro+', 'pro-plus', 3990.00, 'MONTHLY', -1, -1, -1, -1)
