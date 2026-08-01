@@ -322,19 +322,22 @@ const getMovements = async (client, tenantId, { startDate, endDate, employeeId, 
 };
 
 const createExpense = async (client, tenantId, { amount, category, paymentMethod, notes, createdByUserId, createdByName }) => {
+  const businessNetIncome = -Math.abs(parseFloat(amount) || 0);
+
   const query = `
     INSERT INTO financial_movements (
       tenant_id, type, category, gross_amount, employee_payout, business_net_income,
       service_name_snapshot, service_duration_snapshot, payment_method,
       completed_by_type, completed_by_id, completed_by_name, notes
     )
-    VALUES ($1, 'EXPENSE', COALESCE($2, 'OPERATIONAL_EXPENSE'), $3, 0, -$3, 'Egreso Operativo', 0, COALESCE($4, 'CASH'), 'USER', $5, $6, $7)
+    VALUES ($1, 'EXPENSE', COALESCE($2, 'OPERATIONAL_EXPENSE'), $3, 0, $4, 'Egreso Operativo', 0, COALESCE($5, 'CASH'), 'USER', $6, $7, $8)
     RETURNING *;
   `;
   const result = await client.query(query, [
     tenantId,
     category || 'OPERATIONAL_EXPENSE',
     amount,
+    businessNetIncome,
     paymentMethod || 'CASH',
     createdByUserId || null,
     createdByName || 'Propietario',

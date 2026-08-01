@@ -101,7 +101,11 @@ const getMovementsData = async (req, res) => {
 };
 
 const createExpenseData = async (req, res) => {
-  const { tenantId, id: userId, firstName, lastName } = req.user;
+  const { tenantId } = req.user;
+  const userId = req.user.userId || req.user.id || null;
+  const firstName = req.user.firstName || '';
+  const lastName = req.user.lastName || '';
+  const createdByName = `${firstName} ${lastName}`.trim() || 'Propietario';
   const { amount, category, paymentMethod, notes } = req.body;
 
   if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
@@ -116,7 +120,7 @@ const createExpenseData = async (req, res) => {
       paymentMethod,
       notes,
       createdByUserId: userId,
-      createdByName: `${firstName || ''} ${lastName || ''}`.trim() || 'Propietario',
+      createdByName,
     });
     return successResponse(res, expense, 'Egreso registrado correctamente');
   } catch (error) {
