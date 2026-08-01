@@ -1,11 +1,11 @@
 const getOverview = async (client, tenantId, startDate, endDate) => {
   const query = `
     SELECT 
-      COALESCE(SUM(gross_amount), 0) AS gross_total,
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN gross_amount ELSE 0 END), 0) AS gross_total,
       COALESCE(SUM(business_net_income), 0) AS net_total,
-      COALESCE(SUM(employee_payout), 0) AS payout_total,
-      COUNT(id)::int AS completed_services_count,
-      COALESCE(AVG(gross_amount), 0) AS avg_ticket
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN employee_payout ELSE 0 END), 0) AS payout_total,
+      COUNT(CASE WHEN type = 'INCOME' THEN id END)::int AS completed_services_count,
+      COALESCE(AVG(CASE WHEN type = 'INCOME' THEN gross_amount END), 0) AS avg_ticket
     FROM financial_movements
     WHERE tenant_id = $1
       AND ($2::timestamp IS NULL OR created_at >= $2::timestamp)
@@ -26,7 +26,7 @@ const getKPIs = async (client, tenantId) => {
   const topEmployeeQuery = `
     SELECT employee_id, employee_name_snapshot, SUM(gross_amount) AS total
     FROM financial_movements
-    WHERE tenant_id = $1 AND employee_name_snapshot IS NOT NULL
+    WHERE tenant_id = $1 AND type = 'INCOME' AND employee_name_snapshot IS NOT NULL
     GROUP BY employee_id, employee_name_snapshot
     ORDER BY total DESC
     LIMIT 1;
@@ -35,7 +35,7 @@ const getKPIs = async (client, tenantId) => {
   const topServiceQuery = `
     SELECT service_id, service_name_snapshot, COUNT(id)::int AS count
     FROM financial_movements
-    WHERE tenant_id = $1
+    WHERE tenant_id = $1 AND type = 'INCOME' AND service_name_snapshot IS NOT NULL
     GROUP BY service_id, service_name_snapshot
     ORDER BY count DESC
     LIMIT 1;
@@ -96,10 +96,10 @@ const getChartData = async (client, tenantId, startDate, endDate, grouping = 'da
   const query = `
     SELECT 
       DATE_TRUNC('${truncUnit}', created_at) AS date_group,
-      COALESCE(SUM(gross_amount), 0) AS gross_total,
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN gross_amount ELSE 0 END), 0) AS gross_total,
       COALESCE(SUM(business_net_income), 0) AS net_total,
-      COALESCE(SUM(employee_payout), 0) AS payout_total,
-      COUNT(id)::int AS count
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN employee_payout ELSE 0 END), 0) AS payout_total,
+      COUNT(CASE WHEN type = 'INCOME' THEN id END)::int AS count
     FROM financial_movements
     WHERE tenant_id = $1
       AND ($2::timestamp IS NULL OR created_at >= $2::timestamp)
@@ -142,13 +142,14 @@ const getEmployeeRanking = async (client, tenantId, startDate, endDate, sortBy =
     SELECT 
       employee_id,
       COALESCE(employee_name_snapshot, 'Sin asignar') AS employee_name,
-      COUNT(id)::int AS services_count,
-      COALESCE(SUM(gross_amount), 0) AS gross_total,
-      COALESCE(SUM(employee_payout), 0) AS payout_total,
+      COUNT(CASE WHEN type = 'INCOME' THEN id END)::int AS services_count,
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN gross_amount ELSE 0 END), 0) AS gross_total,
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN employee_payout ELSE 0 END), 0) AS payout_total,
       COALESCE(SUM(business_net_income), 0) AS net_total,
-      COALESCE(AVG(gross_amount), 0) AS avg_ticket
+      COALESCE(AVG(CASE WHEN type = 'INCOME' THEN gross_amount END), 0) AS avg_ticket
     FROM financial_movements
     WHERE tenant_id = $1
+      AND (type = 'INCOME' OR employee_id IS NOT NULL)
       AND ($2::timestamp IS NULL OR created_at >= $2::timestamp)
       AND ($3::timestamp IS NULL OR created_at <= $3::timestamp)
     GROUP BY employee_id, employee_name_snapshot
@@ -177,11 +178,11 @@ const getEmployeeDetail = async (client, tenantId, employeeId, startDate, endDat
 
   const statsQuery = `
     SELECT 
-      COALESCE(SUM(gross_amount), 0) AS gross_total,
-      COALESCE(SUM(employee_payout), 0) AS payout_total,
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN gross_amount ELSE 0 END), 0) AS gross_total,
+      COALESCE(SUM(CASE WHEN type = 'INCOME' THEN employee_payout ELSE 0 END), 0) AS payout_total,
       COALESCE(SUM(business_net_income), 0) AS net_total,
-      COUNT(id)::int AS services_count,
-      COALESCE(AVG(gross_amount), 0) AS avg_ticket
+      COUNT(CASE WHEN type = 'INCOME' THEN id END)::int AS services_count,
+      COALESCE(AVG(CASE WHEN type = 'INCOME' THEN gross_amount END), 0) AS avg_ticket
     FROM financial_movements
     WHERE tenant_id = $1 AND employee_id = $2
       AND ($3::timestamp IS NULL OR created_at >= $3::timestamp)
