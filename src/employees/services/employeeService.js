@@ -3,10 +3,13 @@ const {
   copyBusinessHoursToEmployee,
   getEmployeeById,
   updateEmployee,
+  updateEmployeeAvatar: updateEmployeeAvatarRepo,
   replaceEmployeeServices,
   countEmployeesByTenant,
 } = require('../repositories/employeeRepository');
 const { getSubscriptionLimits } = require('../../subscriptions/repositories/subscriptionRepository');
+const tenantRepo = require('../../tenant/repositories/tenantRepository');
+const cloudinaryService = require('../../services/cloudinaryService');
 
 class EmployeeValidationError extends Error {
   constructor(message) {
@@ -66,8 +69,6 @@ const addEmployee = async (client, tenantId, employeeData) => {
   
   if (limits && limits.max_users !== -1) {
     const currentCount = await countEmployeesByTenant(client, tenantId);
-    // Asumimos que limits.max_users incluye al dueño + empleados. Si no, solo comparamos con currentCount.
-    // Para simplificar, asumiremos que currentCount (solo tabla employees) + 1 (el owner en users) <= max_users.
     if ((currentCount + 1) >= limits.max_users) {
       throw new Error('Límite de empleados alcanzado para tu plan actual');
     }
@@ -118,9 +119,71 @@ const modifyEmployee = async (client, id, tenantId, updates) => {
   return employee;
 };
 
+const replaceEmployeeAvatar = async (client, employeeId, tenantId, file) => {
+  const existing = await getEmployeeById(client, employeeId, tenantId);
+  if (!existing) throw new Error('Empleado no encontrado');
+
+  const tenant = await tenantRepo.findTenantSlugById(client, tenantId);
+  if (!tenant) throw new Error('Empresa no encontrada');
+
+  const uploadedImage = await cloudinaryService.uploadEmployeeAvatar({
+    buffer: file.buffer,
+    tenantSlug: tenant.slug,
+    employeeId,
+  });
+
+  let updatedEmployee;
+  try {
+    updatedEmployee = await updateEmployeeAvatarRepo(
+      client,
+      employeeId,
+      tenantId,
+      uploadedImage.imageUrl,
+      uploadedImage.imagePublicId
+    );
+  } catch (error) {
+    try {
+      await cloudinaryService.destroyImage(uploadedImage.imagePublicId);
+    } catch (cleanupError) {
+      console.error('No se pudo limpiar la foto recién subida:', cleanupError);
+    }
+    throw error;
+  }
+
+  if (existing.avatar_public_id) {
+    try {
+      await cloudinaryService.destroyImage(existing.avatar_public_id);
+    } catch (error) {
+      console.error(`No se pudo eliminar la foto anterior del empleado ${employeeId}:`, error);
+    }
+  }
+
+  return updatedEmployee;
+};
+
+const removeEmployeeAvatar = async (client, employeeId, tenantId) => {
+  const existing = await getEmployeeById(client, employeeId, tenantId);
+  if (!existing) throw new Error('Empleado no encontrado');
+  if (!existing.avatar_url && !existing.avatar_public_id) return existing;
+
+  const updatedEmployee = await updateEmployeeAvatarRepo(client, employeeId, tenantId, null, null);
+
+  if (existing.avatar_public_id) {
+    try {
+      await cloudinaryService.destroyImage(existing.avatar_public_id);
+    } catch (error) {
+      console.error(`No se pudo eliminar la foto de Cloudinary del empleado ${employeeId}:`, error);
+    }
+  }
+
+  return updatedEmployee;
+};
+
 module.exports = {
   addEmployee,
   modifyEmployee,
+  replaceEmployeeAvatar,
+  removeEmployeeAvatar,
   validateEmployeeData,
   EmployeeValidationError,
 };

@@ -67,7 +67,7 @@ const copyBusinessHoursToEmployee = async (client, employeeId, tenantId) => {
 const getEmployeesByTenant = async (client, tenantId) => {
   const query = `
     SELECT id, first_name, last_name, email, phone, is_active, is_active AS active,
-           commission_type, commission_value, portal_token, created_at
+           commission_type, commission_value, portal_token, avatar_url, avatar_public_id, created_at
     FROM employees 
     WHERE tenant_id = $1 
     ORDER BY created_at DESC;
@@ -105,7 +105,7 @@ const getEmployeesByTenant = async (client, tenantId) => {
 
 const getEmployeeById = async (client, id, tenantId) => {
   const query = `
-    SELECT id, first_name, last_name, email, phone, is_active, commission_type, commission_value, portal_token
+    SELECT id, first_name, last_name, email, phone, is_active, commission_type, commission_value, portal_token, avatar_url, avatar_public_id
     FROM employees
     WHERE id = $1 AND tenant_id = $2;
   `;
@@ -193,10 +193,17 @@ const deleteEmployee = async (client, id, tenantId) => {
   return result.rows[0] || null;
 };
 
-const countEmployeesByTenant = async (client, tenantId) => {
-  const query = `SELECT count(*) as count FROM employees WHERE tenant_id = $1 AND is_active = true`;
-  const result = await client.query(query, [tenantId]);
-  return parseInt(result.rows[0].count, 10);
+const updateEmployeeAvatar = async (client, id, tenantId, avatarUrl, avatarPublicId) => {
+  const query = `
+    UPDATE employees
+    SET avatar_url = $1,
+        avatar_public_id = $2,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $3 AND tenant_id = $4
+    RETURNING *, is_active AS active;
+  `;
+  const result = await client.query(query, [avatarUrl, avatarPublicId, id, tenantId]);
+  return result.rows[0] || null;
 };
 
 module.exports = {
@@ -206,6 +213,7 @@ module.exports = {
   getEmployeeById,
   regenerateEmployeePortalToken,
   updateEmployee,
+  updateEmployeeAvatar,
   replaceEmployeeServices,
   deleteEmployee,
   countEmployeesByTenant

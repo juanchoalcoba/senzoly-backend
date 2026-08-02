@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS employees (
     commission_type VARCHAR(20) CHECK (commission_type IN ('percentage', 'fixed')),
     commission_value NUMERIC(10, 2),
     portal_token VARCHAR(64) UNIQUE,
+    avatar_url TEXT,
+    avatar_public_id TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

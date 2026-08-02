@@ -32,10 +32,35 @@ const uploadServiceImage = ({ buffer, tenantSlug, serviceId }) => {
   });
 };
 
+const uploadEmployeeAvatar = ({ buffer, tenantSlug, employeeId }) => {
+  ensureCloudinaryConfigured();
+
+  const folder = `senzoly/${safeFolderSegment(tenantSlug)}/employees`;
+  const publicId = `employee-${employeeId}-${crypto.randomUUID()}`;
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({
+      folder,
+      public_id: publicId,
+      resource_type: 'image',
+      overwrite: false,
+      transformation: [
+        { width: 800, height: 800, crop: 'fill', gravity: 'face' },
+        { quality: 'auto', fetch_format: 'auto' },
+      ],
+    }, (error, result) => {
+      if (error) return reject(error);
+      return resolve({ imageUrl: result.secure_url, imagePublicId: result.public_id });
+    });
+
+    stream.end(buffer);
+  });
+};
+
 const destroyImage = async (publicId) => {
   if (!publicId) return;
   ensureCloudinaryConfigured();
   await cloudinary.uploader.destroy(publicId, { resource_type: 'image', invalidate: true });
 };
 
-module.exports = { uploadServiceImage, destroyImage };
+module.exports = { uploadServiceImage, uploadEmployeeAvatar, destroyImage };

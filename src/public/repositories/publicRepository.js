@@ -26,7 +26,7 @@ const getPublicActiveServices = async (client, tenantId) => {
 
 const getPublicActiveEmployeesByService = async (client, tenantId, serviceId) => {
   const result = await client.query(`
-    SELECT e.id, e.first_name, e.last_name
+    SELECT e.id, e.first_name, e.last_name, e.avatar_url
     FROM employees e
     WHERE e.tenant_id = $1
       AND e.is_active = true
@@ -50,7 +50,7 @@ const getPublicActiveEmployeesByService = async (client, tenantId, serviceId) =>
 
 const getPublicActiveEmployeeForService = async (client, tenantId, serviceId, employeeId) => {
   const result = await client.query(`
-    SELECT e.id, e.first_name, e.last_name
+    SELECT e.id, e.first_name, e.last_name, e.avatar_url
     FROM employees e
     WHERE e.id = $1
       AND e.tenant_id = $2

@@ -1,6 +1,6 @@
 const db = require('../../config/db');
 const { getEmployeesByTenant, deleteEmployee, regenerateEmployeePortalToken } = require('../repositories/employeeRepository');
-const { addEmployee, modifyEmployee, EmployeeValidationError } = require('../services/employeeService');
+const { addEmployee, modifyEmployee, replaceEmployeeAvatar, removeEmployeeAvatar, EmployeeValidationError } = require('../services/employeeService');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
 const getEmployees = async (req, res) => {
@@ -91,6 +91,44 @@ const updateExistingEmployee = async (req, res) => {
   }
 };
 
+const replaceAvatar = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+
+  const client = await db.getClient();
+  try {
+    const employee = await replaceEmployeeAvatar(client, id, tenantId, req.file);
+    return successResponse(res, employee, 'Foto de perfil del empleado actualizada correctamente');
+  } catch (error) {
+    console.error('Error en replaceAvatar:', error);
+    if (error.message === 'Empleado no encontrado') {
+      return errorResponse(res, error.message, [], 404);
+    }
+    return errorResponse(res, 'Error al subir foto de perfil del empleado', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const deleteAvatar = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+
+  const client = await db.getClient();
+  try {
+    const employee = await removeEmployeeAvatar(client, id, tenantId);
+    return successResponse(res, employee, 'Foto de perfil eliminada correctamente');
+  } catch (error) {
+    console.error('Error en deleteAvatar:', error);
+    if (error.message === 'Empleado no encontrado') {
+      return errorResponse(res, error.message, [], 404);
+    }
+    return errorResponse(res, 'Error al eliminar foto del empleado', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 const regenerateToken = async (req, res) => {
   const { tenantId } = req.user;
   const { id } = req.params;
@@ -133,6 +171,8 @@ module.exports = {
   getEmployees,
   createNewEmployee,
   updateExistingEmployee,
+  replaceAvatar,
+  deleteAvatar,
   regenerateToken,
   removeEmployee
 };
