@@ -14,10 +14,10 @@ const { successResponse, errorResponse } = require('../../utils/responseUtils');
 
 const getDashboardData = async (req, res) => {
   const { tenantId } = req.user;
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, branchId } = req.query;
   const client = await db.getClient();
   try {
-    const overview = await getOverview(client, tenantId, startDate, endDate);
+    const overview = await getOverview(client, tenantId, startDate, endDate, branchId);
     const kpis = await getKPIs(client, tenantId);
     return successResponse(res, { overview, kpis }, 'Métricas financieras obtenidas correctamente');
   } catch (error) {
@@ -79,7 +79,7 @@ const getEmployeeDetailData = async (req, res) => {
 
 const getMovementsData = async (req, res) => {
   const { tenantId } = req.user;
-  const { startDate, endDate, employeeId, serviceId, paymentMethod, type, limit, offset } = req.query;
+  const { startDate, endDate, employeeId, serviceId, paymentMethod, type, branchId, limit, offset } = req.query;
   const client = await db.getClient();
   try {
     const result = await getMovements(client, tenantId, {
@@ -89,6 +89,7 @@ const getMovementsData = async (req, res) => {
       serviceId,
       paymentMethod,
       type,
+      branchId,
       limit: parseInt(limit, 10) || 50,
       offset: parseInt(offset, 10) || 0,
     });

@@ -25,14 +25,15 @@ const assertTenantOperational = (tenant) => {
   }
 };
 
-const getPublicTenant = async (client, slug) => {
+const getPublicTenant = async (client, slug, branchId = null) => {
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) {
     throw new Error('Negocio no encontrado');
   }
   assertTenantOperational(tenant);
 
-  const services = await publicRepo.getPublicActiveServices(client, tenant.id);
+  const branches = await publicRepo.getPublicActiveBranches(client, tenant.id);
+  const services = await publicRepo.getPublicActiveServices(client, tenant.id, branchId);
   return {
     tenant: {
       id: tenant.id,
@@ -48,11 +49,20 @@ const getPublicTenant = async (client, slug) => {
         slug: tenant.business_type_slug,
       },
     },
+    branches,
     services,
   };
 };
 
-const getAvailableProfessionals = async (client, slug, serviceId) => {
+const getPublicBranches = async (client, slug) => {
+  const tenant = await publicRepo.findTenantBySlug(client, slug);
+  if (!tenant) throw new Error('Negocio no encontrado');
+  assertTenantOperational(tenant);
+
+  return await publicRepo.getPublicActiveBranches(client, tenant.id);
+};
+
+const getAvailableProfessionals = async (client, slug, serviceId, branchId = null) => {
   const tenant = await publicRepo.findTenantBySlug(client, slug);
   if (!tenant) throw new Error('Negocio no encontrado');
   assertTenantOperational(tenant);
@@ -62,7 +72,7 @@ const getAvailableProfessionals = async (client, slug, serviceId) => {
     throw new Error('Servicio no encontrado o no disponible');
   }
 
-  return await publicRepo.getPublicActiveEmployeesByService(client, tenant.id, serviceId);
+  return await publicRepo.getPublicActiveEmployeesByService(client, tenant.id, serviceId, branchId);
 };
 
 // Helper para convertir "HH:MM" o "HH:MM:SS" a minutos desde las 00:00
@@ -265,6 +275,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
     customerId: customerRecord.id,
     serviceId: service.id,
     employeeId: employee?.id || null,
+    branchId: bookingPayload.branchId || null,
     bookingDate,
     startTime: startTimeStr,
     endTime: endTimeStr,
@@ -284,6 +295,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
 
 module.exports = {
   getPublicTenant,
+  getPublicBranches,
   getAvailableProfessionals,
   getAvailableSlots,
   createPublicBooking,

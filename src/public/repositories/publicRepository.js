@@ -13,19 +13,46 @@ const findTenantBySlug = async (client, slug) => {
   return result.rows[0] || null;
 };
 
-const getPublicActiveServices = async (client, tenantId) => {
+const getPublicActiveBranches = async (client, tenantId) => {
   const query = `
-    SELECT id, name, description, duration_minutes, price, image_url
-    FROM services
+    SELECT id, name, address, phone, image_url, is_main
+    FROM branches
     WHERE tenant_id = $1 AND is_active = true
-    ORDER BY name ASC;
+    ORDER BY is_main DESC, name ASC;
   `;
   const result = await client.query(query, [tenantId]);
   return result.rows;
 };
 
-const getPublicActiveEmployeesByService = async (client, tenantId, serviceId) => {
-  const result = await client.query(`
+const getPublicActiveServices = async (client, tenantId, branchId = null) => {
+  let query = `
+    SELECT s.id, s.name, s.description, s.duration_minutes, s.price, s.image_url
+    FROM services s
+    WHERE s.tenant_id = $1 AND s.is_active = true
+  `;
+  const params = [tenantId];
+
+  if (branchId) {
+    query += `
+      AND (
+        EXISTS (
+          SELECT 1 FROM branch_services bs WHERE bs.service_id = s.id AND bs.branch_id = $2
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM branch_services bs WHERE bs.service_id = s.id
+        )
+      )
+    `;
+    params.push(branchId);
+  }
+
+  query += ` ORDER BY s.name ASC;`;
+  const result = await client.query(query, params);
+  return result.rows;
+};
+
+const getPublicActiveEmployeesByService = async (client, tenantId, serviceId, branchId = null) => {
+  let query = `
     SELECT e.id, e.first_name, e.last_name, e.avatar_url
     FROM employees e
     WHERE e.tenant_id = $1
@@ -43,8 +70,25 @@ const getPublicActiveEmployeesByService = async (client, tenantId, serviceId) =>
           SELECT 1 FROM employee_services es WHERE es.employee_id = e.id
         )
       )
-    ORDER BY e.first_name ASC, e.last_name ASC;
-  `, [tenantId, serviceId]);
+  `;
+  const params = [tenantId, serviceId];
+
+  if (branchId) {
+    query += `
+      AND (
+        EXISTS (
+          SELECT 1 FROM branch_employees be WHERE be.employee_id = e.id AND be.branch_id = $3
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM branch_employees be WHERE be.employee_id = e.id
+        )
+      )
+    `;
+    params.push(branchId);
+  }
+
+  query += ` ORDER BY e.first_name ASC, e.last_name ASC;`;
+  const result = await client.query(query, params);
   return result.rows;
 };
 
@@ -126,12 +170,12 @@ const getExistingBookingsForDate = async (client, tenantId, employeeId, serviceI
 };
 
 const createBookingRecord = async (client, bookingData) => {
-  const { tenantId, customerId, serviceId, employeeId, bookingDate, startTime, endTime, totalPrice, notes, status = 'CONFIRMED' } = bookingData;
+  const { tenantId, customerId, serviceId, employeeId, branchId, bookingDate, startTime, endTime, totalPrice, notes, status = 'CONFIRMED' } = bookingData;
   const id = uuidv4();
 
   const query = `
-    INSERT INTO bookings (id, tenant_id, customer_id, service_id, employee_id, booking_date, start_time, end_time, status, total_price, notes)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    INSERT INTO bookings (id, tenant_id, customer_id, service_id, employee_id, branch_id, booking_date, start_time, end_time, status, total_price, notes)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     RETURNING *;
   `;
   const result = await client.query(query, [
@@ -140,6 +184,7 @@ const createBookingRecord = async (client, bookingData) => {
     customerId,
     serviceId,
     employeeId || null,
+    branchId || null,
     bookingDate,
     startTime,
     endTime,
@@ -152,6 +197,7 @@ const createBookingRecord = async (client, bookingData) => {
 
 module.exports = {
   findTenantBySlug,
+  getPublicActiveBranches,
   getPublicActiveServices,
   getPublicActiveEmployeesByService,
   getPublicActiveEmployeeForService,

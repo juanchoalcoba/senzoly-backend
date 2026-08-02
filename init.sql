@@ -265,8 +265,40 @@ INSERT INTO business_types (id, name, slug) VALUES
 ('018e6e58-3d2b-7b00-8000-000000000005', 'Otros', 'otros')
 ON CONFLICT (slug) DO NOTHING;
 
+-- 8. Tabla: branches (Sucursales)
+CREATE TABLE IF NOT EXISTS branches (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(150) NOT NULL,
+    address VARCHAR(255),
+    phone VARCHAR(50),
+    image_url TEXT,
+    image_public_id TEXT,
+    is_main BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Tabla intermedia: branch_employees
+CREATE TABLE IF NOT EXISTS branch_employees (
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    PRIMARY KEY (branch_id, employee_id)
+);
+
+-- 10. Tabla intermedia: branch_services
+CREATE TABLE IF NOT EXISTS branch_services (
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    PRIMARY KEY (branch_id, service_id)
+);
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE SET NULL;
+ALTER TABLE financial_movements ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id) ON DELETE SET NULL;
+
 INSERT INTO plans (id, name, slug, price, billing_period, max_users, max_locations, max_resources, max_bookings) VALUES 
-('018e6e58-3d2c-7b00-8000-000000000001', 'Prueba', 'prueba', 0.00, 'MONTHLY', 8, 1, 1, -1),
+('018e6e58-3d2c-7b00-8000-000000000001', 'Prueba', 'prueba', 0.00, 'MONTHLY', 8, -1, 1, -1),
 ('018e6e58-3d2c-7b00-8000-000000000002', 'Solo', 'solo', 1490.00, 'MONTHLY', 1, 1, -1, -1),
 ('018e6e58-3d2c-7b00-8000-000000000003', 'Equipo', 'equipo', 2490.00, 'MONTHLY', 8, 1, -1, -1),
 ('018e6e58-3d2c-7b00-8000-000000000004', 'Pro+', 'pro-plus', 3990.00, 'MONTHLY', -1, -1, -1, -1)

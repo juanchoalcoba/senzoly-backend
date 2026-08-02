@@ -10,9 +10,10 @@ const isTenantUnavailable = (error) => (
 
 const getTenantBySlug = async (req, res) => {
   const { slug } = req.params;
+  const { branchId } = req.query;
   const client = await db.getClient();
   try {
-    const data = await publicService.getPublicTenant(client, slug);
+    const data = await publicService.getPublicTenant(client, slug, branchId);
     return successResponse(res, data, 'Información del negocio obtenida correctamente');
   } catch (error) {
     console.error('Error en getTenantBySlug:', error);
@@ -23,6 +24,26 @@ const getTenantBySlug = async (req, res) => {
       return errorResponse(res, error.message, [], 403);
     }
     return errorResponse(res, 'Error al obtener información del negocio', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const getBranches = async (req, res) => {
+  const { slug } = req.params;
+  const client = await db.getClient();
+  try {
+    const branches = await publicService.getPublicBranches(client, slug);
+    return successResponse(res, branches, 'Sucursales obtenidas correctamente');
+  } catch (error) {
+    console.error('Error en getBranches público:', error);
+    if (error.message === 'Negocio no encontrado') {
+      return errorResponse(res, error.message, [], 404);
+    }
+    if (isTenantUnavailable(error)) {
+      return errorResponse(res, error.message, [], 403);
+    }
+    return errorResponse(res, 'Error al obtener sucursales del negocio', [], 500);
   } finally {
     client.release();
   }
@@ -61,7 +82,7 @@ const getSlots = async (req, res) => {
 
 const getProfessionals = async (req, res) => {
   const { slug } = req.params;
-  const { serviceId } = req.query;
+  const { serviceId, branchId } = req.query;
 
   if (!serviceId) {
     return errorResponse(res, 'serviceId es un parámetro obligatorio', [], 400);
@@ -69,7 +90,7 @@ const getProfessionals = async (req, res) => {
 
   const client = await db.getClient();
   try {
-    const professionals = await publicService.getAvailableProfessionals(client, slug, serviceId);
+    const professionals = await publicService.getAvailableProfessionals(client, slug, serviceId, branchId);
     return successResponse(res, professionals, 'Profesionales disponibles obtenidos correctamente');
   } catch (error) {
     console.error('Error en getProfessionals:', error);
@@ -87,7 +108,7 @@ const getProfessionals = async (req, res) => {
 
 const createBooking = async (req, res) => {
   const { slug } = req.params;
-  const { serviceId, employeeId, bookingDate, startTime, customer, notes } = req.body;
+  const { serviceId, employeeId, branchId, bookingDate, startTime, customer, notes } = req.body;
 
   const client = await db.getClient();
   try {
@@ -95,6 +116,7 @@ const createBooking = async (req, res) => {
     const result = await publicService.createPublicBooking(client, slug, {
       serviceId,
       employeeId,
+      branchId,
       bookingDate,
       startTime,
       customer,
@@ -129,6 +151,7 @@ const createBooking = async (req, res) => {
 
 module.exports = {
   getTenantBySlug,
+  getBranches,
   getSlots,
   getProfessionals,
   createBooking,

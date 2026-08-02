@@ -1,4 +1,4 @@
-const getOverview = async (client, tenantId, startDate, endDate) => {
+const getOverview = async (client, tenantId, startDate, endDate, branchId = null) => {
   const query = `
     SELECT 
       COALESCE(SUM(CASE WHEN type = 'INCOME' THEN gross_amount ELSE 0 END), 0) AS gross_total,
@@ -10,9 +10,10 @@ const getOverview = async (client, tenantId, startDate, endDate) => {
     FROM financial_movements
     WHERE tenant_id = $1
       AND ($2::timestamp IS NULL OR created_at >= $2::timestamp)
-      AND ($3::timestamp IS NULL OR created_at <= $3::timestamp);
+      AND ($3::timestamp IS NULL OR created_at <= $3::timestamp)
+      AND ($4::uuid IS NULL OR branch_id = $4::uuid);
   `;
-  const result = await client.query(query, [tenantId, startDate || null, endDate || null]);
+  const result = await client.query(query, [tenantId, startDate || null, endDate || null, branchId || null]);
   const row = result.rows[0];
   return {
     grossTotal: parseFloat(row.gross_total),
@@ -247,7 +248,7 @@ const getEmployeeDetail = async (client, tenantId, employeeId, startDate, endDat
   };
 };
 
-const getMovements = async (client, tenantId, { startDate, endDate, employeeId, serviceId, paymentMethod, type, limit = 50, offset = 0 }) => {
+const getMovements = async (client, tenantId, { startDate, endDate, employeeId, serviceId, paymentMethod, type, branchId, limit = 50, offset = 0 }) => {
   const conditions = ['tenant_id = $1'];
   const params = [tenantId];
   let paramIdx = 2;
@@ -280,6 +281,11 @@ const getMovements = async (client, tenantId, { startDate, endDate, employeeId, 
   if (type) {
     conditions.push(`type = $${paramIdx}`);
     params.push(type);
+    paramIdx++;
+  }
+  if (branchId) {
+    conditions.push(`branch_id = $${paramIdx}`);
+    params.push(branchId);
     paramIdx++;
   }
 
