@@ -34,13 +34,8 @@ const getPublicActiveServices = async (client, tenantId, branchId = null) => {
 
   if (branchId) {
     query += `
-      AND (
-        EXISTS (
-          SELECT 1 FROM branch_services bs WHERE bs.service_id = s.id AND bs.branch_id = $2
-        )
-        OR NOT EXISTS (
-          SELECT 1 FROM branch_services bs WHERE bs.service_id = s.id
-        )
+      AND EXISTS (
+        SELECT 1 FROM branch_services bs WHERE bs.service_id = s.id AND bs.branch_id = $2
       )
     `;
     params.push(branchId);
@@ -75,13 +70,8 @@ const getPublicActiveEmployeesByService = async (client, tenantId, serviceId, br
 
   if (branchId) {
     query += `
-      AND (
-        EXISTS (
-          SELECT 1 FROM branch_employees be WHERE be.employee_id = e.id AND be.branch_id = $3
-        )
-        OR NOT EXISTS (
-          SELECT 1 FROM branch_employees be WHERE be.employee_id = e.id
-        )
+      AND EXISTS (
+        SELECT 1 FROM branch_employees be WHERE be.employee_id = e.id AND be.branch_id = $3
       )
     `;
     params.push(branchId);
