@@ -206,6 +206,12 @@ const updateEmployeeAvatar = async (client, id, tenantId, avatarUrl, avatarPubli
   return result.rows[0] || null;
 };
 
+const countEmployeesByTenant = async (client, tenantId) => {
+  const query = `SELECT count(*) as count FROM employees WHERE tenant_id = $1 AND is_active = true`;
+  const result = await client.query(query, [tenantId]);
+  return parseInt(result.rows[0].count, 10);
+};
+
 module.exports = {
   createEmployee,
   copyBusinessHoursToEmployee,
