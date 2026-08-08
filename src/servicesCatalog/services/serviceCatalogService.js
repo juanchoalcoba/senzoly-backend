@@ -34,12 +34,34 @@ const addService = async (client, tenantId, serviceData) => {
     throw new Error('El precio debe ser un número mayor o igual a cero');
   }
 
-  return await serviceRepo.createService(client, tenantId, {
+  const newService = await serviceRepo.createService(client, tenantId, {
     ...serviceData,
     name: name.trim(),
     durationMinutes: duration,
     price: numericPrice,
   });
+
+  // Auto-assign new service to all active branches of the tenant
+  try {
+    const branchesRes = await client.query(
+      'SELECT id FROM branches WHERE tenant_id = $1 AND is_active = true;',
+      [tenantId]
+    );
+    if (branchesRes.rows.length > 0) {
+      const values = branchesRes.rows
+        .map((_, idx) => `($${idx + 2}, $1)`)
+        .join(', ');
+      const branchIds = branchesRes.rows.map((b) => b.id);
+      await client.query(
+        `INSERT INTO branch_services (branch_id, service_id) VALUES ${values} ON CONFLICT DO NOTHING;`,
+        [newService.id, ...branchIds]
+      );
+    }
+  } catch (err) {
+    console.error('Error al auto-asignar servicio a sucursales:', err);
+  }
+
+  return newService;
 };
 
 const modifyService = async (client, id, tenantId, updateData) => {
