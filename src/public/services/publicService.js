@@ -219,8 +219,8 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
 
   validateBookingDate(bookingDate);
 
-  if (!customer.firstName || !customer.lastName || (!customer.email && !customer.phone)) {
-    throw new Error('Nombre, apellido y al menos un método de contacto (email o teléfono) son obligatorios');
+  if (!customer.firstName || !customer.lastName || !customer.phone || !customer.phone.trim()) {
+    throw new Error('Nombre, apellido y teléfono son obligatorios');
   }
 
   const tenant = await publicRepo.findTenantBySlug(client, slug);
