@@ -1,9 +1,17 @@
+const crypto = require('crypto');
+const db = require('../../config/db');
 const publicRepo = require('../repositories/publicRepository');
 const serviceRepo = require('../../servicesCatalog/repositories/serviceCatalogRepository');
 const customerRepo = require('../../customers/repositories/customerRepository');
 const { isTenantOperational, getTenantAccessMessage } = require('../../tenant/tenantStatus');
+const notificationService = require('../../notifications/services/notificationService');
 
 const BUSINESS_TIME_ZONE = process.env.BUSINESS_TIME_ZONE || 'America/Montevideo';
+
+const hashToken = (token) => {
+  if (!token) return null;
+  return crypto.createHash('sha256').update(token.trim()).digest('hex');
+};
 
 const getBusinessToday = () => {
   const dateParts = new Intl.DateTimeFormat('en-US', {
@@ -269,7 +277,11 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
   const endTimeStr = `${minutesToTime(endMin)}:00`;
   const startTimeStr = `${normalizedStartTime}:00`;
 
-  // 4. Inserción de la reserva
+  // 4. Generar Token Criptográfico de Gestión
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const manageTokenHash = hashToken(rawToken);
+
+  // 5. Inserción de la reserva
   const bookingRecord = await publicRepo.createBookingRecord(client, {
     tenantId: tenant.id,
     customerId: customerRecord.id,
@@ -281,16 +293,91 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
     endTime: endTimeStr,
     totalPrice: service.price,
     notes: notes || null,
+    manageTokenHash,
     status: 'CONFIRMED',
   });
 
-  return {
+  const responseData = {
     booking: bookingRecord,
     customer: customerRecord,
     service,
     employee,
     tenant,
+    manageToken: rawToken,
   };
+
+  // Disparo asíncrono no bloqueante de notificaciones de confirmación
+  setImmediate(() => {
+    notificationService.sendBookingConfirmationNotifications(db, responseData).catch(err => {
+      console.error('[PublicService] Error en envío asíncrono de notificación:', err.message);
+    });
+  });
+
+  return responseData;
+};
+
+const getBookingByManageToken = async (client, rawToken) => {
+  if (!rawToken || !rawToken.trim()) {
+    throw new Error('Token de gestión inválido');
+  }
+
+  const tokenHash = hashToken(rawToken);
+  const bookingDetails = await publicRepo.findBookingByTokenHash(client, tokenHash);
+
+  if (!bookingDetails) {
+    throw new Error('Reserva no encontrada o el enlace ha caducado');
+  }
+
+  return bookingDetails;
+};
+
+const cancelBookingByManageToken = async (client, rawToken, reason = null) => {
+  if (!rawToken || !rawToken.trim()) {
+    throw new Error('Token de gestión inválido');
+  }
+
+  const tokenHash = hashToken(rawToken);
+  const booking = await publicRepo.findBookingByTokenHash(client, tokenHash);
+
+  if (!booking) {
+    throw new Error('Reserva no encontrada o el enlace ha caducado');
+  }
+
+  if (booking.status === 'CANCELED') {
+    throw new Error('Esta reserva ya se encuentra cancelada');
+  }
+
+  if (booking.status === 'COMPLETED') {
+    throw new Error('No se puede cancelar una reserva que ya ha sido completada');
+  }
+
+  const canceledBooking = await publicRepo.cancelBookingRecord(client, booking.id, reason);
+
+  // Disparo asíncrono de notificaciones de cancelación
+  setImmediate(() => {
+    notificationService.sendBookingCancellationNotifications(db, {
+      booking: canceledBooking,
+      customer: {
+        id: booking.customer_id,
+        first_name: booking.customer_first_name,
+        last_name: booking.customer_last_name,
+        email: booking.customer_email,
+        phone: booking.customer_phone,
+      },
+      service: {
+        name: booking.service_name,
+      },
+      tenant: {
+        id: booking.tenant_id,
+        name: booking.tenant_name,
+        slug: booking.tenant_slug,
+      },
+    }).catch(err => {
+      console.error('[PublicService] Error notificando cancelación:', err.message);
+    });
+  });
+
+  return canceledBooking;
 };
 
 module.exports = {
@@ -299,4 +386,6 @@ module.exports = {
   getAvailableProfessionals,
   getAvailableSlots,
   createPublicBooking,
+  getBookingByManageToken,
+  cancelBookingByManageToken,
 };

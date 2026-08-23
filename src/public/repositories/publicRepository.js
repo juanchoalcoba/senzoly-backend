@@ -160,12 +160,12 @@ const getExistingBookingsForDate = async (client, tenantId, employeeId, serviceI
 };
 
 const createBookingRecord = async (client, bookingData) => {
-  const { tenantId, customerId, serviceId, employeeId, branchId, bookingDate, startTime, endTime, totalPrice, notes, status = 'CONFIRMED' } = bookingData;
+  const { tenantId, customerId, serviceId, employeeId, branchId, bookingDate, startTime, endTime, totalPrice, notes, manageTokenHash, status = 'CONFIRMED' } = bookingData;
   const id = uuidv4();
 
   const query = `
-    INSERT INTO bookings (id, tenant_id, customer_id, service_id, employee_id, branch_id, booking_date, start_time, end_time, status, total_price, notes)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    INSERT INTO bookings (id, tenant_id, customer_id, service_id, employee_id, branch_id, booking_date, start_time, end_time, status, total_price, notes, manage_token_hash)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *;
   `;
   const result = await client.query(query, [
@@ -180,9 +180,44 @@ const createBookingRecord = async (client, bookingData) => {
     endTime,
     status,
     totalPrice,
-    notes || null
+    notes || null,
+    manageTokenHash || null,
   ]);
   return result.rows[0];
+};
+
+const findBookingByTokenHash = async (client, tokenHash) => {
+  const query = `
+    SELECT b.id, b.tenant_id, b.customer_id, b.service_id, b.employee_id, b.branch_id,
+           b.booking_date, b.start_time, b.end_time, b.status, b.total_price, b.notes,
+           b.created_at, b.canceled_at,
+           c.first_name AS customer_first_name, c.last_name AS customer_last_name, c.email AS customer_email, c.phone AS customer_phone,
+           s.name AS service_name, s.duration_minutes, s.price AS service_price,
+           e.first_name AS employee_first_name, e.last_name AS employee_last_name,
+           t.name AS tenant_name, t.slug AS tenant_slug, t.phone AS tenant_phone, t.address AS tenant_address
+    FROM bookings b
+    JOIN customers c ON b.customer_id = c.id
+    JOIN services s ON b.service_id = s.id
+    JOIN tenants t ON b.tenant_id = t.id
+    LEFT JOIN employees e ON b.employee_id = e.id
+    WHERE b.manage_token_hash = $1;
+  `;
+  const result = await client.query(query, [tokenHash]);
+  return result.rows[0] || null;
+};
+
+const cancelBookingRecord = async (client, bookingId, reason = null) => {
+  const query = `
+    UPDATE bookings
+    SET status = 'CANCELED',
+        canceled_at = CURRENT_TIMESTAMP,
+        cancellation_reason = $2,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $1
+    RETURNING *;
+  `;
+  const result = await client.query(query, [bookingId, reason]);
+  return result.rows[0] || null;
 };
 
 module.exports = {
@@ -197,4 +232,6 @@ module.exports = {
   getExistingBookingsForDate,
   lockUnassignedBookingSchedule,
   createBookingRecord,
+  findBookingByTokenHash,
+  cancelBookingRecord,
 };

@@ -40,9 +40,7 @@ if (isProduction) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(cors({
   origin(origin, callback) {
-    // Las peticiones sin Origin (health checks, servidores y herramientas internas)
-    // no están sujetas a CORS, que es una protección del navegador.
-    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    if (!origin || isProduction === false || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error('Origen no autorizado por la política CORS'));
   },
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -93,9 +91,18 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });
 
+const db = require('./config/db');
+const notificationService = require('./notifications/services/notificationService');
+
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+
+  // Iniciar worker de recordatorios automáticos (ejecución cada 5 minutos)
+  setInterval(() => {
+    notificationService.processScheduledReminders(db).catch(err => {
+      console.error('Error en worker de recordatorios:', err.message);
+    });
+  }, 5 * 60 * 1000);
 });
-//EXIT

@@ -198,9 +198,31 @@ CREATE TABLE IF NOT EXISTS bookings (
     status VARCHAR(50) NOT NULL DEFAULT 'CONFIRMED',
     total_price NUMERIC(10, 2) NOT NULL,
     notes TEXT,
+    manage_token_hash VARCHAR(64) UNIQUE,
+    canceled_at TIMESTAMP NULL,
+    cancellation_reason TEXT NULL,
+    reminder_5h_sent BOOLEAN DEFAULT false,
+    reminder_1h_sent BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 11.1 Tabla: fcm_tokens (Notificaciones Push FCM)
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+    id UUID PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+    booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    device_type VARCHAR(50) DEFAULT 'web',
+    last_used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_fcm_tokens_tenant ON fcm_tokens(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_fcm_tokens_user ON fcm_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_fcm_tokens_booking ON fcm_tokens(booking_id);
 
 -- 12. Tabla: financial_movements (Módulo Financiero)
 CREATE TABLE IF NOT EXISTS financial_movements (

@@ -149,10 +149,80 @@ const createBooking = async (req, res) => {
   }
 };
 
+const saveFcmToken = async (req, res) => {
+  const { token, tenantId, userId, customerId, bookingId, deviceType } = req.body;
+  if (!token) {
+    return errorResponse(res, 'El token FCM es obligatorio', [], 400);
+  }
+
+  const notificationService = require('../../notifications/services/notificationService');
+  const client = await db.getClient();
+  try {
+    const record = await notificationService.registerFcmToken(client, {
+      token,
+      tenantId,
+      userId,
+      customerId,
+      bookingId,
+      deviceType,
+    });
+    return successResponse(res, record, 'Token FCM registrado correctamente');
+  } catch (error) {
+    console.error('Error guardando token FCM:', error);
+    return errorResponse(res, 'Error al registrar token FCM', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const getBookingByManageToken = async (req, res) => {
+  const { token } = req.params;
+  const client = await db.getClient();
+  try {
+    const bookingDetails = await publicService.getBookingByManageToken(client, token);
+    return successResponse(res, bookingDetails, 'Información de la reserva obtenida correctamente');
+  } catch (error) {
+    console.error('Error en getBookingByManageToken:', error);
+    if (error.message.includes('inválido') || error.message.includes('caducado') || error.message.includes('encontrada')) {
+      return errorResponse(res, error.message, [], 404);
+    }
+    return errorResponse(res, 'Error al consultar la reserva', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
+const cancelBookingByManageToken = async (req, res) => {
+  const { token } = req.params;
+  const { reason } = req.body;
+  const client = await db.getClient();
+  try {
+    await client.query('BEGIN');
+    const canceledBooking = await publicService.cancelBookingByManageToken(client, token, reason);
+    await client.query('COMMIT');
+    return successResponse(res, canceledBooking, 'Tu reserva ha sido cancelada exitosamente');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en cancelBookingByManageToken:', error);
+    if (error.message.includes('inválido') || error.message.includes('caducado') || error.message.includes('encontrada')) {
+      return errorResponse(res, error.message, [], 404);
+    }
+    if (error.message.includes('cancelada') || error.message.includes('completada')) {
+      return errorResponse(res, error.message, [], 400);
+    }
+    return errorResponse(res, 'Error al cancelar la reserva', [], 500);
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getTenantBySlug,
   getBranches,
   getSlots,
   getProfessionals,
   createBooking,
+  saveFcmToken,
+  getBookingByManageToken,
+  cancelBookingByManageToken,
 };
