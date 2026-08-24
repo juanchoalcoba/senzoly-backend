@@ -166,8 +166,8 @@ const processScheduledReminders = async (clientPool) => {
       JOIN tenants t ON b.tenant_id = t.id
       WHERE b.status = 'CONFIRMED'
         AND b.reminder_5h_sent = false
-        AND (b.booking_date + b.start_time) <= ((NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo')) + INTERVAL '5 hours')
-        AND (b.booking_date + b.start_time) > ((NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo')) + INTERVAL '1 hour');
+        AND (b.booking_date + b.start_time) <= ((NOW() AT TIME ZONE 'America/Montevideo') + INTERVAL '5 hours')
+        AND (b.booking_date + b.start_time) > ((NOW() AT TIME ZONE 'America/Montevideo') + INTERVAL '1 hour');
     `;
     const res5h = await clientPool.query(query5h);
 
@@ -208,8 +208,8 @@ const processScheduledReminders = async (clientPool) => {
       JOIN tenants t ON b.tenant_id = t.id
       WHERE b.status = 'CONFIRMED'
         AND b.reminder_1h_sent = false
-        AND (b.booking_date + b.start_time) <= ((NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo')) + INTERVAL '1 hour')
-        AND (b.booking_date + b.start_time) > (NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo'));
+        AND (b.booking_date + b.start_time) <= ((NOW() AT TIME ZONE 'America/Montevideo') + INTERVAL '1 hour')
+        AND (b.booking_date + b.start_time) > (NOW() AT TIME ZONE 'America/Montevideo');
     `;
     const res1h = await clientPool.query(query1h);
 
