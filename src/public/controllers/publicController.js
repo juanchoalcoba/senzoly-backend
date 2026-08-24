@@ -150,7 +150,7 @@ const createBooking = async (req, res) => {
 };
 
 const saveFcmToken = async (req, res) => {
-  const { token, tenantId, userId, customerId, bookingId, deviceType } = req.body;
+  const { token, tenantId, userId, customerId, bookingId, manageToken, deviceType } = req.body;
   if (!token) {
     return errorResponse(res, 'El token FCM es obligatorio', [], 400);
   }
@@ -166,6 +166,39 @@ const saveFcmToken = async (req, res) => {
       bookingId,
       deviceType,
     });
+
+    // Si viene asociado a una reserva, enviamos de inmediato la notificación Push de confirmación con su enlace de gestión
+    if (bookingId) {
+      setImmediate(async () => {
+        try {
+          const bookingRes = await client.query(
+            `SELECT b.id, b.booking_date, b.start_time, s.name as service_name, t.name as tenant_name, t.slug as tenant_slug
+             FROM bookings b
+             JOIN services s ON b.service_id = s.id
+             JOIN tenants t ON b.tenant_id = t.id
+             WHERE b.id = $1`,
+            [bookingId]
+          );
+          if (bookingRes.rows.length > 0) {
+            const row = bookingRes.rows[0];
+            const frontendUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'https://senzoly.com').replace(/\/$/, '');
+            const manageUrl = manageToken 
+              ? `${frontendUrl}/reserva/gestionar/${manageToken}`
+              : `${frontendUrl}/reserva/${row.tenant_slug}`;
+
+            const title = `✅ ¡Reserva Confirmada en ${row.tenant_name}!`;
+            const body = `Tu cita de ${row.service_name} quedó agendada para el ${row.booking_date} a las ${row.start_time.substring(0, 5)} hs. Toca aquí para ver o gestionar tu turno.`;
+            await notificationService.sendPushToTokens(db, [token], title, body, {
+              url: manageUrl,
+              type: 'BOOKING_CONFIRMED',
+            });
+          }
+        } catch (err) {
+          console.error('[saveFcmToken] Error enviando notificación de confirmación inmediata:', err.message);
+        }
+      });
+    }
+
     return successResponse(res, record, 'Token FCM registrado correctamente');
   } catch (error) {
     console.error('Error guardando token FCM:', error);
