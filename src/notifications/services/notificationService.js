@@ -36,8 +36,17 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
   }
 
   try {
+    const frontendUrl = getFrontendUrl();
+    const iconUrl = `${frontendUrl}/faviconsenzoly.png`;
+
     const payloadData = Object.fromEntries(
-      Object.entries({ ...data, title, body }).map(([k, v]) => [k, String(v)])
+      Object.entries({
+        icon: iconUrl,
+        badge: iconUrl,
+        ...data,
+        title,
+        body,
+      }).map(([k, v]) => [k, String(v)])
     );
 
     const response = await msgService.sendEachForMulticast({
@@ -46,6 +55,10 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
       webpush: {
         fcmOptions: {
           link: data.url || '/',
+        },
+        notification: {
+          icon: iconUrl,
+          badge: iconUrl,
         },
       },
     });
