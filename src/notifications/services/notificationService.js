@@ -36,10 +36,18 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
   }
 
   try {
+    const payloadData = Object.fromEntries(
+      Object.entries({ ...data, title, body }).map(([k, v]) => [k, String(v)])
+    );
+
     const response = await msgService.sendEachForMulticast({
       tokens,
-      notification: { title, body },
-      data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+      data: payloadData,
+      webpush: {
+        fcmOptions: {
+          link: data.url || '/',
+        },
+      },
     });
 
     // Limpieza de tokens inválidos u obsoletos
@@ -75,7 +83,7 @@ const sendBookingConfirmationNotifications = async (clientPool, bookingData) => 
 
     // 1. Notificar a los administradores / usuarios del Tenant
     const tenantTokensRes = await clientPool.query(
-      `SELECT DISTINCT token FROM fcm_tokens WHERE tenant_id = $1`,
+      `SELECT DISTINCT token FROM fcm_tokens WHERE tenant_id = $1 OR user_id IN (SELECT id FROM users WHERE tenant_id = $1)`,
       [tenant.id]
     );
     const tenantTokens = tenantTokensRes.rows.map(r => r.token);
@@ -116,10 +124,11 @@ const sendBookingCancellationNotifications = async (clientPool, bookingData) => 
 
     // 1. Notificar al Tenant Owner / Empleados
     const tenantTokensRes = await clientPool.query(
-      `SELECT DISTINCT token FROM fcm_tokens WHERE tenant_id = $1`,
+      `SELECT DISTINCT token FROM fcm_tokens WHERE tenant_id = $1 OR user_id IN (SELECT id FROM users WHERE tenant_id = $1)`,
       [tenant.id]
     );
     const tenantTokens = tenantTokensRes.rows.map(r => r.token);
+    console.log(`[NotificationService] Notificando cancelación a tenant ${tenant.id}. Tokens encontrados: ${tenantTokens.length}`);
 
     if (tenantTokens.length > 0) {
       const title = `🔴 Reserva Cancelada`;
