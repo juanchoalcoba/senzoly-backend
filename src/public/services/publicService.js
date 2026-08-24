@@ -321,8 +321,7 @@ const getBookingByManageToken = async (client, rawToken) => {
     throw new Error('Token de gestión inválido');
   }
 
-  const tokenHash = hashToken(rawToken);
-  const bookingDetails = await publicRepo.findBookingByTokenHash(client, tokenHash);
+  const bookingDetails = await publicRepo.findBookingByTokenHash(client, rawToken);
 
   if (!bookingDetails) {
     throw new Error('Reserva no encontrada o el enlace ha caducado');
@@ -336,8 +335,7 @@ const cancelBookingByManageToken = async (client, rawToken, reason = null) => {
     throw new Error('Token de gestión inválido');
   }
 
-  const tokenHash = hashToken(rawToken);
-  const booking = await publicRepo.findBookingByTokenHash(client, tokenHash);
+  const booking = await publicRepo.findBookingByTokenHash(client, rawToken);
 
   if (!booking) {
     throw new Error('Reserva no encontrada o el enlace ha caducado');
