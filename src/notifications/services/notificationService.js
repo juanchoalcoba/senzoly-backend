@@ -156,6 +156,7 @@ const processScheduledReminders = async (clientPool) => {
     const frontendUrl = getFrontendUrl();
 
     // --- Recordatorios de 5 Horas ---
+    // Usamos (NOW() AT TIME ZONE 'America/Montevideo') para calcular la hora local real del negocio
     const query5h = `
       SELECT b.id, b.tenant_id, b.customer_id, b.booking_date, b.start_time, b.manage_token_hash,
              c.first_name, c.last_name, s.name AS service_name, t.name AS tenant_name, t.slug AS tenant_slug
@@ -165,8 +166,8 @@ const processScheduledReminders = async (clientPool) => {
       JOIN tenants t ON b.tenant_id = t.id
       WHERE b.status = 'CONFIRMED'
         AND b.reminder_5h_sent = false
-        AND (b.booking_date + b.start_time) <= (NOW() + INTERVAL '5 hours')
-        AND (b.booking_date + b.start_time) > (NOW() + INTERVAL '1 hour');
+        AND (b.booking_date + b.start_time) <= ((NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo')) + INTERVAL '5 hours')
+        AND (b.booking_date + b.start_time) > ((NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo')) + INTERVAL '1 hour');
     `;
     const res5h = await clientPool.query(query5h);
 
@@ -184,9 +185,17 @@ const processScheduledReminders = async (clientPool) => {
           url: `${frontendUrl}/reserva/${row.tenant_slug}`,
           type: 'REMINDER_5H',
         });
+        await clientPool.query(`UPDATE bookings SET reminder_5h_sent = true WHERE id = $1`, [row.id]);
+      } else {
+        // Si aún no hay token registrado pero el turno ya pasó la ventana de 5h y se acerca a la de 1h, evitamos reintentar infinitamente
+        const isPast5hWindow = await clientPool.query(
+          `SELECT 1 FROM bookings WHERE id = $1 AND (booking_date + start_time) <= ((NOW() AT TIME ZONE 'America/Montevideo') + INTERVAL '1 hour')`,
+          [row.id]
+        );
+        if (isPast5hWindow.rows.length > 0) {
+          await clientPool.query(`UPDATE bookings SET reminder_5h_sent = true WHERE id = $1`, [row.id]);
+        }
       }
-
-      await clientPool.query(`UPDATE bookings SET reminder_5h_sent = true WHERE id = $1`, [row.id]);
     }
 
     // --- Recordatorios de 1 Hora ---
@@ -199,8 +208,8 @@ const processScheduledReminders = async (clientPool) => {
       JOIN tenants t ON b.tenant_id = t.id
       WHERE b.status = 'CONFIRMED'
         AND b.reminder_1h_sent = false
-        AND (b.booking_date + b.start_time) <= (NOW() + INTERVAL '1 hour')
-        AND (b.booking_date + b.start_time) > NOW();
+        AND (b.booking_date + b.start_time) <= ((NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo')) + INTERVAL '1 hour')
+        AND (b.booking_date + b.start_time) > (NOW() AT TIME ZONE COALESCE(t.timezone, 'America/Montevideo'));
     `;
     const res1h = await clientPool.query(query1h);
 
@@ -218,9 +227,16 @@ const processScheduledReminders = async (clientPool) => {
           url: `${frontendUrl}/reserva/${row.tenant_slug}`,
           type: 'REMINDER_1H',
         });
+        await clientPool.query(`UPDATE bookings SET reminder_1h_sent = true WHERE id = $1`, [row.id]);
+      } else {
+        const isPast1hWindow = await clientPool.query(
+          `SELECT 1 FROM bookings WHERE id = $1 AND (booking_date + start_time) <= (NOW() AT TIME ZONE 'America/Montevideo')`,
+          [row.id]
+        );
+        if (isPast1hWindow.rows.length > 0) {
+          await clientPool.query(`UPDATE bookings SET reminder_1h_sent = true WHERE id = $1`, [row.id]);
+        }
       }
-
-      await clientPool.query(`UPDATE bookings SET reminder_1h_sent = true WHERE id = $1`, [row.id]);
     }
   } catch (error) {
     console.error('[NotificationService] Error procesando recordatorios programados:', error.message);
