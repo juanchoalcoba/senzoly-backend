@@ -279,7 +279,7 @@ const createPublicBooking = async (client, slug, bookingPayload) => {
 
   // 4. Generar Token Criptográfico de Gestión
   const rawToken = crypto.randomBytes(32).toString('hex');
-  const manageTokenHash = hashToken(rawToken);
+  const manageTokenHash = rawToken;
 
   // 5. Inserción de la reserva
   const bookingRecord = await publicRepo.createBookingRecord(client, {

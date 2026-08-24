@@ -200,9 +200,11 @@ const findBookingByTokenHash = async (client, tokenHash) => {
     JOIN services s ON b.service_id = s.id
     JOIN tenants t ON b.tenant_id = t.id
     LEFT JOIN employees e ON b.employee_id = e.id
-    WHERE b.manage_token_hash = $1;
+    WHERE b.manage_token_hash = $1 OR b.manage_token_hash = $2;
   `;
-  const result = await client.query(query, [tokenHash]);
+  const crypto = require('crypto');
+  const hashed = crypto.createHash('sha256').update(tokenHash).digest('hex');
+  const result = await client.query(query, [tokenHash, hashed]);
   return result.rows[0] || null;
 };
 

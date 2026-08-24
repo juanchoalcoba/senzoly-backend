@@ -179,10 +179,14 @@ const processScheduledReminders = async (clientPool) => {
       const tokens = customerTokensRes.rows.map(r => r.token);
 
       if (tokens.length > 0) {
+        const manageUrl = row.manage_token_hash 
+          ? `${frontendUrl}/reserva/gestionar/${row.manage_token_hash}`
+          : `${frontendUrl}/reserva/${row.tenant_slug}`;
+
         const title = `⏰ Recordatorio de Cita (en 5 horas)`;
-        const body = `Hola ${row.first_name}, te recordamos tu cita de ${row.service_name} hoy a las ${row.start_time.substring(0, 5)} hs en ${row.tenant_name}.`;
+        const body = `Hola ${row.first_name}, te recordamos tu cita de ${row.service_name} hoy a las ${row.start_time.substring(0, 5)} hs en ${row.tenant_name}. Toca aquí para ver o gestionar tu turno.`;
         await sendPushToTokens(clientPool, tokens, title, body, {
-          url: `${frontendUrl}/reserva/${row.tenant_slug}`,
+          url: manageUrl,
           type: 'REMINDER_5H',
         });
         await clientPool.query(`UPDATE bookings SET reminder_5h_sent = true WHERE id = $1`, [row.id]);
@@ -221,10 +225,14 @@ const processScheduledReminders = async (clientPool) => {
       const tokens = customerTokensRes.rows.map(r => r.token);
 
       if (tokens.length > 0) {
+        const manageUrl = row.manage_token_hash 
+          ? `${frontendUrl}/reserva/gestionar/${row.manage_token_hash}`
+          : `${frontendUrl}/reserva/${row.tenant_slug}`;
+
         const title = `🚨 ¡Tu turno es en 1 hora!`;
-        const body = `${row.first_name}, tu cita de ${row.service_name} en ${row.tenant_name} comienza a las ${row.start_time.substring(0, 5)} hs.`;
+        const body = `${row.first_name}, tu cita de ${row.service_name} en ${row.tenant_name} comienza a las ${row.start_time.substring(0, 5)} hs. Toca aquí para ver o gestionar tu turno.`;
         await sendPushToTokens(clientPool, tokens, title, body, {
-          url: `${frontendUrl}/reserva/${row.tenant_slug}`,
+          url: manageUrl,
           type: 'REMINDER_1H',
         });
         await clientPool.query(`UPDATE bookings SET reminder_1h_sent = true WHERE id = $1`, [row.id]);
