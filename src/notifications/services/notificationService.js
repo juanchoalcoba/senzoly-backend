@@ -37,12 +37,14 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
 
   try {
     const frontendUrl = getFrontendUrl();
-    const iconUrl = `${frontendUrl}/faviconsenzoly.png`;
+    const iconUrl = `${frontendUrl}/notification-icon.png`;
+    const notificationTag = data.tag || `senzoly-${data.type || 'notification'}`;
 
     const payloadData = Object.fromEntries(
       Object.entries({
         icon: iconUrl,
         badge: iconUrl,
+        tag: notificationTag,
         ...data,
         title,
         body,
@@ -59,6 +61,7 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
         notification: {
           icon: iconUrl,
           badge: iconUrl,
+          tag: notificationTag,
         },
       },
     });
