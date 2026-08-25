@@ -43,7 +43,6 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
     const payloadData = Object.fromEntries(
       Object.entries({
         icon: iconUrl,
-        badge: iconUrl,
         tag: notificationTag,
         ...data,
         title,
@@ -59,8 +58,9 @@ const sendPushToTokens = async (clientPool, tokens, title, body, data = {}) => {
           link: data.url || '/',
         },
         notification: {
+          title,
+          body,
           icon: iconUrl,
-          badge: iconUrl,
           tag: notificationTag,
         },
       },
