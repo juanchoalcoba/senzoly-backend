@@ -16,8 +16,7 @@ const pool = process.env.DATABASE_URL
     });
 
 pool.on("error", (err) => {
-  console.error("Unexpected error on idle client", err);
-  process.exit(-1);
+  console.error("[PostgreSQL Pool Error] Error inesperado en cliente inactivo de la base de datos:", err.message);
 });
 
 module.exports = {
