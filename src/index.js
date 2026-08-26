@@ -18,15 +18,19 @@ const subscriptionRoutes = require('./subscriptions/routes/subscriptionRoutes');
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
-const productionOrigins = new Set([
+const productionOrigins = [
   'https://senzoly.com',
   'https://www.senzoly.com',
-]);
-const developmentOrigins = new Set([
+];
+const developmentOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-]);
-const allowedOrigins = isProduction ? productionOrigins : new Set([...productionOrigins, ...developmentOrigins]);
+  'http://localhost:3000',
+];
+const allowedOrigins = new Set([...productionOrigins, ...developmentOrigins]);
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.add(process.env.FRONTEND_URL.replace(/\/$/, ''));
+}
 
 if (isProduction && !process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET es obligatoria en producción');
@@ -40,11 +44,16 @@ if (isProduction) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || isProduction === false || allowedOrigins.has(origin)) return callback(null, true);
-    return callback(new Error('Origen no autorizado por la política CORS'));
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin) || origin.endsWith('.senzoly.com') || origin.endsWith('.railway.app')) {
+      return callback(null, true);
+    }
+    if (!isProduction) return callback(null, true);
+    return callback(null, false);
   },
+  credentials: true,
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Authorization', 'Content-Type'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With'],
   maxAge: 86400,
 }));
 app.use((req, res, next) => {
