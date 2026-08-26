@@ -1,4 +1,4 @@
-const { v7: uuidv7 } = require('uuid');
+const { randomUUID: uuidv7 } = require('crypto');
 
 const createSubscription = async (client, id, tenantId, planId, status = 'TRIAL', startsAt = null, expiresAt = null) => {
   const query = `

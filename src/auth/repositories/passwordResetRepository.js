@@ -1,4 +1,4 @@
-const { v7: uuidv7 } = require('uuid');
+const { randomUUID: uuidv7 } = require('crypto');
 
 const deleteActiveTokensByUserId = async (client, userId) => {
   await client.query(

@@ -87,7 +87,7 @@ const findOrCreateCustomer = async (client, tenantId, customerData) => {
   }
 
   // Si no existe, crear nuevo
-  const { v4: uuidv4 } = require('uuid');
+  const { randomUUID: uuidv4 } = require('crypto');
   const id = uuidv4();
   const insertQuery = `
     INSERT INTO customers (id, tenant_id, first_name, last_name, email, phone, notes)

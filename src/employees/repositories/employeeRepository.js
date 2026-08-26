@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('crypto');
 const crypto = require('crypto');
 
 const generatePortalToken = () => crypto.randomBytes(24).toString('hex');

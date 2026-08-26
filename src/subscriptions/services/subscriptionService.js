@@ -207,7 +207,7 @@ const handleWebhook = async (body, query) => {
         // Fallback si no tuviera suscripción creada
         const newSub = await subscriptionRepo.createSubscription(
           client,
-          require('uuid').v7(),
+          require('crypto').randomUUID(),
           tenantId,
           planId,
           'ACTIVE',

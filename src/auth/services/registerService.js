@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { v7: uuidv7 } = require('uuid');
+const { randomUUID: uuidv7 } = require('crypto');
 const db = require('../../config/db');
 const { generateSlug } = require('../../utils/slugUtils');
 const { sendVerificationEmail } = require('../../utils/emailService');
