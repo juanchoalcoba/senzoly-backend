@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const db = require('../../config/db');
 const { findUserByEmail, updateUserPassword } = require('../../users/repositories/userRepository');
 const passwordResetRepository = require('../repositories/passwordResetRepository');

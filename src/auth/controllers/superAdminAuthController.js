@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { generateToken } = require('../../utils/jwtUtils');
 const { successResponse, errorResponse } = require('../../utils/responseUtils');
 

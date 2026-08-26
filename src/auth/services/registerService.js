@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { v7: uuidv7 } = require('uuid');
 const db = require('../../config/db');
 const { generateSlug } = require('../../utils/slugUtils');
