@@ -32,14 +32,16 @@ const login = async (req, res) => {
       return errorResponse(res, 'Credenciales incorrectas', [], 401);
     }
 
-    if (!isTenantOperational(user.tenant_status)) {
+    if (user.tenant_status === 'deleted') {
       return errorResponse(
         res,
-        getTenantAccessMessage(user.tenant_status),
-        [{ code: 'TENANT_UNAVAILABLE', status: user.tenant_status }],
+        'Esta cuenta ha sido eliminada permanentemente',
+        [{ code: 'TENANT_DELETED', status: 'deleted' }],
         403
       );
     }
+
+    const isSuspended = user.tenant_status === 'suspended';
 
     // Generar JWT
     const token = generateToken({
@@ -58,9 +60,11 @@ const login = async (req, res) => {
       firstName: user.first_name,
       lastName: user.last_name,
       role: user.role,
+      tenantStatus: user.tenant_status,
+      isSuspended,
     };
 
-    return successResponse(res, { token, user: userData }, 'Inicio de sesión exitoso');
+    return successResponse(res, { token, user: userData, tenantStatus: user.tenant_status, isSuspended }, 'Inicio de sesión exitoso');
   } catch (error) {
     console.error('Error en login:', error);
     return errorResponse(res, 'Error al iniciar sesión', [], 500);

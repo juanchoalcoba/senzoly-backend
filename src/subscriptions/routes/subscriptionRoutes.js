@@ -8,8 +8,8 @@ const webhookSignatureMiddleware = require('../middlewares/webhookSignatureMiddl
 router.post('/webhook', webhookSignatureMiddleware, subscriptionController.handleWebhook);
 
 // Endpoints protegidos para Tenants
+router.get('/plans', subscriptionController.getAvailablePlans);
 router.get('/status', authMiddleware, subscriptionController.getSubscriptionStatus);
-router.get('/plans', authMiddleware, subscriptionController.getAvailablePlans);
 router.post('/create-preference', authMiddleware, subscriptionController.createPreference);
 router.get('/history', authMiddleware, subscriptionController.getPaymentHistory);
 
