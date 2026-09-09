@@ -131,8 +131,29 @@ const updateTenant = (serviceMethod, successMessage) => async (req, res) => {
 };
 
 const suspendTenant = updateTenant(tenantAdminService.suspendTenant, 'Empresa suspendida correctamente');
-const reactivateTenant = updateTenant(tenantAdminService.reactivateTenant, 'Empresa reactivada correctamente');
 const deleteTenant = updateTenant(tenantAdminService.softDeleteTenant, 'Empresa eliminada correctamente');
+
+const reactivateTenant = async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const { planId, durationDays } = req.body || {};
+    const tenant = await tenantAdminService.reactivateTenant(client, req.params.id, { planId, durationDays });
+    return successResponse(res, tenant, 'Empresa reactivada correctamente');
+  } catch (error) {
+    if (
+      error.message.includes('Empresa no encontrada') ||
+      error.message.includes('empresa eliminada') ||
+      error.message.includes('plan') ||
+      error.message.includes('Plan')
+    ) {
+      return errorResponse(res, error.message, [], 400);
+    }
+    console.error('Error reactivando empresa:', error);
+    return errorResponse(res, 'Error interno al reactivar empresa', [], 500);
+  } finally {
+    client.release();
+  }
+};
 
 const getSubscriptionsOverview = async (req, res) => {
   const client = await db.getClient();
